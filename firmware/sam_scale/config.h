@@ -5,11 +5,15 @@
 #define SAM_FW_VERSION "0.2.0"
 #define SAM_CONTRACT_VERSION 1   // SAM_SPEC.md "펌웨어 ↔ 서버 데이터 계약" 버전
 
-// ── 핀 (ATOMS3 Lite, 실측 배선 — 바꾸지 말 것) ──
-#define PIN_HX711_SCK 5
-#define PIN_HX711_DT  6
-#define PIN_BUTTON    41   // ATOMS3 Lite 내장 버튼, active LOW
-#define PIN_LED       35   // 내장 WS2812 (PIN_RGB_LED)
+// ── 핀 (ATOMS3 Lite) ──
+// HX711 핀은 기본값이고 기기마다 NVS로 바꿀 수 있다 (시리얼 'hxpins <DT> <SCK> <GND|-1>').
+//   실험용 1세트(11/16): HX711 헤더를 왼쪽 소켓에 직접 꽂아 GND가 G7에 닿음 → G7을 LOW로 만들어 GND 대용
+//   밋업 13세트: GND를 진짜 G에 배선 예정 → 'hxpins 6 5 -1' (G7을 LOW로 둬도 해는 없음)
+#define HX_SCK_DEFAULT 5
+#define HX_DT_DEFAULT  6
+#define HX_GND_DEFAULT 7    // GND 대용 GPIO. -1 = 사용 안 함. 이 핀은 절대 HIGH로 만들지 않는다
+#define PIN_BUTTON    41   // 내장 버튼, active LOW (M5Unified 공식 소스 확인)
+#define PIN_LED       35   // 내장 RGB LED WS2812C-2020 1개 (M5Unified 공식 소스 확인)
 
 // ── 측정 ──
 #define BOOT_SETTLE_MS        500   // 부팅 후 대기

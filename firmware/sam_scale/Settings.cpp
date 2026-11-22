@@ -19,6 +19,9 @@ void Settings::load() {
   Preferences p;
   p.begin(NS, true);
   devNo = p.getUChar("dev_no", 0);
+  hxSck = p.getChar("hx_sck", HX_SCK_DEFAULT);
+  hxDt = p.getChar("hx_dt", HX_DT_DEFAULT);
+  hxGnd = p.getChar("hx_gnd", HX_GND_DEFAULT);
   wifiSsid = p.getString("wifi_ssid", SAM_DEFAULT_WIFI_SSID);
   wifiPass = p.getString("wifi_pass", SAM_DEFAULT_WIFI_PASS);
   serverUrl = p.getString("srv_url", SAM_DEFAULT_SERVER_URL);
@@ -41,6 +44,9 @@ void Settings::save() {
   p.begin(NS, false);
   p.putUChar("schema", SCHEMA);
   p.putUChar("dev_no", devNo);
+  p.putChar("hx_sck", hxSck);
+  p.putChar("hx_dt", hxDt);
+  p.putChar("hx_gnd", hxGnd);
   p.putString("wifi_ssid", wifiSsid);
   p.putString("wifi_pass", wifiPass);
   p.putString("srv_url", serverUrl);

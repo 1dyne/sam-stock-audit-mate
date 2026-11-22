@@ -43,10 +43,96 @@
 
 ---
 
-## 2. 하드웨어 (조립·동작 확인 완료 — 바꾸지 말 것)
+## 2. 하드웨어
+
+### 2.1 공통 사양
 
 | 항목 | 값 |
 |---|---|
+| 보드 | M5Stack ATOMS3 Lite (ESP32-S3FN8, 플래시 8MB, PSRAM 없음, **Wi-Fi 2.4GHz 전용**) |
+| ADC | HX711 모듈 SZH-SSBH-016 (10Hz) |
+| 센서 | 5kg 바형 로드셀 4선 |
+| 내장 RGB LED | **GPIO35**, WS2812 계열 **1개** |
+| 내장 버튼 | **GPIO41**, 누르면 LOW |
+| 전원 | USB-C (노트북 또는 보조배터리) |
+
+LED·버튼 핀 출처: M5Stack 공식 라이브러리 **M5Unified** 소스 (`src/M5Unified.inl`, 2026-11-06 커밋 96576a1): 핀 표 `{ board_M5AtomS3Lite , GPIO_NUM_35 }` (RGBLED, 개수 기본 1), 버튼 `gpio_in(GPIO_NUM_41)` 반전 읽기. Espressif 보드 정의(`variants/m5stack_atoms3/pins_arduino.h`의 `PIN_RGB_LED 35`)와 일치.
+※ 공식 문서 페이지(docs.m5stack.com)와 회로도 PDF는 펌웨어 세션 환경에서 접속이 막혀 **직접 보지 못함**. 커뮤니티 자료 중 LED가 4개라는 설명도 있음 → 실기에서 LED 1개 켜지는지 확인 필요.
+
+### 2.2 하드웨어 실물 상태
+
+#### 실험용 1세트 (11/16 조립, 동작 확인 완료)
+
+**로드셀 → HX711** (HX711 P2 패드에 직접 납땜)
+
+| 로드셀 선 | HX711 |
+|---|---|
+| 빨강 | E+ |
+| 검정 | E− |
+| 흰색 | A− |
+| 초록 | A+ |
+| — | B−, B+ 사용 안 함 |
+
+**HX711 → ATOMS3 Lite** (점퍼선 없이 직접 꽂음): HX711 P1(GND·DT·SCK·VCC)에 4핀 헤더 납땜 → ATOMS3 Lite **왼쪽 암 소켓**(위에서부터 3V3, G5, G6, G7, G8)에 꽂음
+
+| HX711 | ATOMS3 Lite | 비고 |
+|---|---|---|
+| VCC | 3V3 (맨 위) | |
+| SCK | G5 | |
+| DT | G6 | |
+| GND | **G7** | ⚠ 진짜 GND 아님 → 펌웨어가 G7을 출력 LOW로 만들어 GND 대용 |
+| — | G8 (맨 아래) | 비어 있음 |
+
+- 오른쪽 소켓(G39, G38, 5V, G)과 아래 그로브 포트는 사용 안 함
+- HX711 + 로드셀 전류 약 5mA → GPIO 싱크로 충분 (다인 측정/판단). 펌웨어는 G7 구동력을 최대(`GPIO_DRIVE_CAP_3`)로 설정
+- **G7은 절대 HIGH로 바꾸지 말 것** (역전압 위험은 없지만 HX711 전원이 끊김). 펌웨어는 `setup()` 맨 앞에서 G7을 LOW로 둔 뒤 다른 일을 함 (출력 전환 전에 래치를 LOW로 써서 HIGH 순간이 생기지 않게)
+
+**11/16 테스트 결과** (HX711 Arduino Library by Bogdan Necula, `scale.begin(6, 5)` = DT G6, SCK G5)
+- 무부하 원시값 약 −90,650, 노이즈 ±30
+- 누르면 약 −458,000까지 감소, 떼면 복귀 → 부호 반전 필요 (펌웨어는 보정 계수를 음수로 잡아 자동 처리)
+- 캘리브레이션(g 변환)은 아직 안 함
+
+**11/23 새벽 상태**
+- 외부 PC에서 다이소 USB-C 케이블로 연결 중. 꽂아도 LED 안 켜짐 → 11/16 테스트 펌웨어가 LED를 안 건드려서일 가능성 높음 (0.2.0부터는 부팅하자마자 파랑)
+- COM 포트 인식 확인 중. 케이블이 충전 전용일 가능성 배제 못 함
+- 이 PC에 Arduino IDE / arduino-cli 새로 설치 중 (esp32 by Espressif, **ESP32S3 Dev Module**, USB CDC On Boot Enabled, Flash 8MB)
+- 업로드 안 되면: 옆면 리셋 2초 → 업로드 모드, 업로드 후 리셋 짧게 1회
+
+#### 밋업 13세트 (11/28용, 미조립)
+
+- 같은 구성, 단 **HX711 GND를 진짜 G에 배선 예정**
+- 펌웨어 설정: 양산 때 시리얼 `hxpins 6 5 -1` (GND 대용 핀 사용 안 함)
+- 13세트에 같은 펌웨어를 올려도 G7을 LOW로 두는 것은 무해 (G7이 비어 있거나 GND에 연결된 경우). G7이 다른 신호선에 연결되는 배선이면 반드시 `-1`로 설정
+
+### 2.3 펌웨어 핀 설정
+
+| 설정 | 기본값 (config.h) | NVS 키 | 바꾸는 법 |
+|---|---|---|---|
+| HX711 DT | G6 | `hx_dt` | 시리얼 `hxpins <DT> <SCK> <GND\|-1>` → 재부팅 |
+| HX711 SCK | G5 | `hx_sck` | 〃 |
+| HX711 GND 대용 | **G7** (실험용 기준) | `hx_gnd` | 〃, `-1` = 사용 안 함 |
+
+- 허용 핀: 헤더/그로브에 나온 1, 2, 5, 6, 7, 8, 38, 39 (서로 달라야 함)
+- 부팅 순서: ① 기본 GND 대용 핀(G7) LOW → ② LED 파랑 → ③ 시리얼 → ④ NVS 읽기, 설정이 다르면 핀 다시 설정 → ⑤ HX711 시작
+- 로그: `[BOOT] HX711 pins DT=G6 SCK=G5 GND=G7`, `info`의 `"hx":[6,5,7]`
+- HX711이 1초 동안 응답 없으면 LED 빨강 고정 (배선 / GND 대용 핀 설정 확인)
+
+### 2.4 Arduino IDE 보드 설정
+
+`ESP32S3 Dev Module`과 `M5AtomS3`(m5stack_atoms3) 둘 다 컴파일 확인. ESP32S3 Dev Module이면 아래처럼 맞출 것:
+
+| 메뉴 | 값 | 틀리면 |
+|---|---|---|
+| USB CDC On Boot | **Enabled** | 시리얼 로그 안 나옴 |
+| USB Mode | Hardware CDC and JTAG | |
+| Flash Size | **8MB (64Mb)** | |
+| Partition Scheme | **8M with spiffs (3MB APP/1.5MB SPIFFS)** | 0.2.0은 1.33MB라 기본(1.2MB)에 안 들어감 |
+| PSRAM | **Disabled** | ⚠ OPI PSRAM을 켜면 GPIO35~37을 PSRAM이 써서 LED가 안 켜짐 (ATOMS3 Lite엔 PSRAM 없음) |
+| Upload Mode | UART0 / Hardware CDC | |
+
+arduino-cli FQBN: `esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=8M,PartitionScheme=default_8MB,PSRAM=disabled`
+
+---|---|
 | 보드 | M5Stack ATOMS3 Lite (ESP32-S3FN8, PSRAM 없음, **Wi-Fi 2.4GHz 전용**) |
 | ADC | HX711 모듈 SZH-SSBH-016 (10Hz) |
 | 센서 | 5kg 바형 로드셀 4선 |
@@ -255,9 +341,10 @@ X-Sam-Device: sam-07
 | ④ AP 설정 페이지 | 🟡 코드 완료 · 컴파일 OK · **실기 미검증** | |
 | ⑤ 서버 전송 + PWA 수신 | 🟡 펌웨어 쪽 완료 · mock 서버 OK · **실기·웹 서버 미검증** | 계약 v1 초안, 웹 확인 대기 |
 | ⑥ 버튼/LED | 🟡 코드 완료 · 다중 클릭 시뮬레이션 통과 · **실기 미검증** | |
+| HX711 핀 설정 분리·G7 GND 대용·부팅 파랑 LED | 🟡 코드 완료 · 컴파일 OK (두 보드 설정) · **실기 미검증** | §2.2~2.3 |
 | ⑦ 블루투스 GATT (0.2.0) | 🟡 코드 완료 · 컴파일 OK · **실기 미검증** | docs/protocol.md |
 | ⑧ 블루투스 키보드 (0.2.0) | 🟡 코드 완료 · 컴파일 OK · **실기 미검증 (아이폰 페어링 포함)** | |
-| 빌드 크기 | 1,314,747B / 앱 파티션 3,342,336B (39%), RAM 57,872B (17%) | `default_8MB` |
+| 빌드 크기 | 1,325,767B / 앱 파티션 3,342,336B (39%), RAM 57,864B (17%) | `default_8MB` |
 | 양산 스크립트 | 🟡 작성 · **실기 미검증** | provision.py |
 
 검증 환경: 펌웨어 세션은 클라우드 컨테이너라 보드에 접근 불가. 컴파일(esp32 core 3.3.13)과 측정 코어 호스트 시뮬레이션(`firmware/test/`, 27항목 통과)까지만 했음. 업로드·시리얼 로그는 다인 PC에서.
@@ -274,6 +361,7 @@ X-Sam-Device: sam-07
 | 11-22 | 펌웨어 | 수량 계산 기준은 PWA (측정기는 무게만). 웹 세션 확인 요청 |
 | 11-22 | 펌웨어 | 업링크는 HTTP POST + 응답에 명령 (WebSocket 아님). 서버 종류(서버리스 포함) 상관없이 구현 가능하게. 웹 세션이 WebSocket/MQTT를 원하면 §9에 요청 |
 | 11-22 | 펌웨어 | 외부 라이브러리 0개 (HX711 직접 구현, JSON 직접 생성) — 13대 빌드 환경 재현 단순화 |
+| 11-23 | 다인 | 실험용 보드는 HX711 GND가 G7에 꽂혀 있음 → 펌웨어로 G7 LOW. 밋업 13세트는 진짜 G 배선 예정. HX711 핀은 설정값(NVS)으로 분리 |
 | 11-22 | 다인 | **기본 사용 방식 변경**: 혼자·폰 하나·서버 없음 → 블루투스 직접 연결. Wi-Fi·서버는 선택 기능 |
 | 11-22 | 펌웨어 | 0.2.0: 라이브러리 NimBLE-Arduino 2.3.9 1개만 추가. 키보드는 NimBLEHIDDevice로 직접 구현 (HijelHID·T-vK 라이브러리는 안 씀 — 의존성 1개로 줄이고 API를 확인할 수 있는 것만 사용) |
 | 11-22 | 펌웨어 | 모드 3개(gatt 기본/kbd/wifi), 모드마다 다른 BLE 주소 (폰의 서비스 캐시 섞임 방지) |
@@ -293,7 +381,9 @@ X-Sam-Device: sam-07
 - [ ] 영점 추적(0.3g) 이 소형 부품(0.3g 미만) 측정을 방해하지 않는지
 - [ ] HX711 모듈 3.3V 구동 시 안정성 (모듈에 따라 5V 권장)
 - [ ] 비트뱅 중 크리티컬 섹션(약 60µs)이 Wi-Fi와 충돌 없는지
-- [ ] ATOMS3 Lite 버튼 G41 / LED G35 동작 (보드 정의 기준, 실기 미확인)
+- [ ] ATOMS3 Lite 버튼 G41 / LED G35 동작 (M5Unified 공식 소스로 핀 확인, 실기 미확인, LED 개수 1개 확인 필요)
+- [ ] G7 GPIO 싱크로 HX711 전원 공급 시 노이즈 (GND 오프셋 수 mV 예상, 11/16 Bogdan 라이브러리 테스트에선 ±30)
+- [ ] 다이소 USB-C 케이블 데이터 지원 여부
 - [ ] 캡티브 포털 자동 팝업: iOS / Android / Windows 각각
 - [ ] 13대 동시 AP일 때 혼잡 (평소엔 STA라 AP 안 켜짐)
 - [ ] HTTPS keep-alive 실제 지연·서버 호환 (웹 서버 정해진 뒤)

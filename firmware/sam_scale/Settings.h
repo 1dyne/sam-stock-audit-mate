@@ -7,7 +7,8 @@ const char *runModeName(RunMode m);
 
 
 struct Settings {
-  uint8_t devNo = 0;            // 스티커 번호 1~99, 0 = 미설정(MAC 뒤 4자리 사용)
+  uint8_t devNo = 0;
+  int8_t hxSck = 5, hxDt = 6, hxGnd = 7;  // HX711 핀 (config.h 기본값, NVS로 변경)            // 스티커 번호 1~99, 0 = 미설정(MAC 뒤 4자리 사용)
   String wifiSsid, wifiPass;
   String serverUrl, serverKey;
   float countsPerG = 0;         // 0 = 미보정

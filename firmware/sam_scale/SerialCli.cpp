@@ -34,6 +34,7 @@ static void help() {
       "  ble gatt | ble kbd    블루투스 GATT(웹 블루투스) / 키보드 모드 → NVS 저장, 재부팅\n"
       "  net wifi              Wi-Fi(서버 전송·AP) 모드 → NVS 저장, 재부팅\n"
       "  ble unpair            저장된 블루투스 페어링 전부 삭제\n"
+      "  hxpins <DT> <SCK> <GND|-1>  HX711 핀 (실험용 6 5 7 / 밋업 6 5 -1) → 재부팅\n"
       "  ap                    이번 부팅만 Wi-Fi AP(설정) 모드로 재부팅\n"
       "  reboot | factory      재부팅 / NVS 전부 지우기"));
 }
@@ -41,12 +42,12 @@ static void help() {
 void cliPrintInfo() {
   ServerStatus sv = g_net.server();
   Serial.printf(
-      "{\"device_id\":\"%s\",\"ble_name\":\"%s\",\"mode\":\"%s\",\"run\":\"%s\",\"device_no\":%u,\"mac\":\"%s\",\"fw_version\":\"%s\",\"calibrated\":%s,"
+      "{\"hx\":[%d,%d,%d],\"device_id\":\"%s\",\"ble_name\":\"%s\",\"mode\":\"%s\",\"run\":\"%s\",\"device_no\":%u,\"mac\":\"%s\",\"fw_version\":\"%s\",\"calibrated\":%s,"
       "\"counts_per_g\":%.4f,\"zero\":%.1f,\"cal_ref_g\":%.1f,\"stable_band_g\":%.2f,\"azt\":%s,"
       "\"unit_g\":%.3f,\"container_g\":%.2f,\"wifi_ssid\":\"%s\",\"wifi_pass_set\":%s,\"server_url\":\"%s\","
       "\"server_key_set\":%s,\"net\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,\"srv_ok\":%s,\"srv_code\":%d,"
       "\"srv_sent\":%lu,\"srv_failed\":%lu,\"weight_g\":%.2f,\"raw\":%ld,\"stable\":%s,\"adc_ok\":%s}\n",
-      deviceId().c_str(), bleName().c_str(), runModeName(g_settings.mode), runModeName(currentRunMode()), g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
+      g_settings.hxDt, g_settings.hxSck, g_settings.hxGnd, deviceId().c_str(), bleName().c_str(), runModeName(g_settings.mode), runModeName(currentRunMode()), g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
       g_settings.calibrated() ? "true" : "false", g_settings.countsPerG, g_settings.zeroOffset, g_settings.calRefG,
       g_settings.stableBandG, g_settings.azt ? "true" : "false", g_settings.unitG, g_settings.containerG,
       g_settings.wifiSsid.c_str(), g_settings.wifiPass.isEmpty() ? "false" : "true", g_settings.serverUrl.c_str(),
@@ -100,6 +101,20 @@ static void exec(String line) {
   else if (cmd == "ble" && arg == "unpair") {
     if (currentRunMode() == RunMode::Wifi) Serial.println("ERR 블루투스 모드에서 실행");
     else Serial.println(NimBLEDevice::deleteAllBonds() ? "OK bonds deleted" : "ERR");
+  }
+  else if (cmd == "hxpins") {
+    int dt = -2, sck = -2, gnd = -2;
+    sscanf(arg.c_str(), "%d %d %d", &dt, &sck, &gnd);
+    auto ok = [](int p) { return p == 1 || p == 2 || p == 5 || p == 6 || p == 7 || p == 8 || p == 38 || p == 39; };
+    if (!ok(dt) || !ok(sck) || dt == sck || (gnd != -1 && (!ok(gnd) || gnd == dt || gnd == sck))) {
+      Serial.println("ERR hxpins <DT> <SCK> <GND|-1>  (사용 가능: 1 2 5 6 7 8 38 39, 서로 달라야 함)");
+      return;
+    }
+    g_settings.hxDt = dt; g_settings.hxSck = sck; g_settings.hxGnd = gnd;
+    g_settings.save();
+    Serial.printf("OK DT=G%d SCK=G%d GND=%d → reboot\n", dt, sck, gnd);
+    delay(300);
+    ESP.restart();
   }
   else if (cmd == "ap") requestApReboot();
   else if (cmd == "reboot") ESP.restart();

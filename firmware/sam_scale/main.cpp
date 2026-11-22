@@ -3,6 +3,7 @@
 // 보드: M5Stack ATOMS3 Lite (ESP32-S3) + HX711 + 5kg 로드셀
 // 동작 모드(NVS, 한 번에 하나): gatt(기본, 웹 블루투스) / kbd(BLE 키보드) / wifi(서버 전송·AP)
 #include <Preferences.h>
+#include <driver/gpio.h>
 #include "config.h"
 #include "Settings.h"
 #include "Hx711Adc.h"
@@ -13,7 +14,7 @@
 #include "Ble.h"
 #include "SerialCli.h"
 
-static Hx711Adc s_adc(PIN_HX711_SCK, PIN_HX711_DT);
+static Hx711Adc *s_adc = nullptr;  // 핀은 NVS에서 읽은 뒤 만든다
 static RunMode s_run = RunMode::Gatt;  // 이번 부팅에 실제로 켠 모드
 static uint32_t s_seq = 0, s_identifyUntil = 0, s_lastLog = 0, s_calResultT = 0;
 
@@ -301,17 +302,37 @@ static void handleButton(uint32_t now) {
   }
 }
 
+// HX711 GND 대용 핀: 가장 먼저 LOW (HX711 전원). 절대 HIGH로 바꾸지 않는다.
+static bool hxPinOk(int p) { return p == 1 || p == 2 || p == 5 || p == 6 || p == 7 || p == 8 || p == 38 || p == 39; }
+static void hxGroundEarly(int pin) {
+  if (pin < 0 || !hxPinOk(pin)) return;
+  digitalWrite(pin, LOW);  // 출력으로 바꾸기 전에 래치를 LOW로 → HIGH 순간이 생기지 않게
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, LOW);
+  gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_3);  // 최대 구동력 (싱크 전압 강하 최소화)
+}
+
 void setup() {
-  Serial.begin(115200);
-  Serial.setTxTimeoutMs(0);  // 모니터가 안 열려 있어도 로그 때문에 루프가 막히지 않게
+  // 1) HX711 GND 대용 핀 (NVS 읽기 전엔 기본값 G7로 먼저 — 실험용 보드가 바로 켜지게)
+  hxGroundEarly(HX_GND_DEFAULT);
+  // 2) 부팅 LED 파랑 — 전원·부팅 눈으로 확인
   g_led.begin(PIN_LED);
   g_led.set(Color::Blue);
   g_led.loop(0);
+  Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);  // 모니터가 안 열려 있어도 로그 때문에 루프가 막히지 않게
   g_button.begin(PIN_BUTTON);
   uint32_t t0 = millis();
   while (!Serial && millis() - t0 < 1500) delay(10);
 
   g_settings.load();
+  if (g_settings.hxGnd != HX_GND_DEFAULT) {
+    // 밋업 보드(-1) 등: 기본 G7은 입력으로 되돌린다 (LOW 유지도 무해하지만 쓰지 않는 핀은 놓아 둠)
+    if (HX_GND_DEFAULT >= 0 && g_settings.hxDt != HX_GND_DEFAULT && g_settings.hxSck != HX_GND_DEFAULT) pinMode(HX_GND_DEFAULT, INPUT);
+    hxGroundEarly(g_settings.hxGnd);
+  }
+  Serial.printf("[BOOT] HX711 pins DT=G%d SCK=G%d GND=%s%d\n", g_settings.hxDt, g_settings.hxSck,
+                g_settings.hxGnd >= 0 ? "G" : "", g_settings.hxGnd);
   bool forceAp = consumeForceAp();
   delay(50);
   if (g_button.heldRaw()) { forceAp = true; Serial.println("[BOOT] button held → 이번 부팅만 Wi-Fi AP 설정 모드"); }
@@ -320,7 +341,8 @@ void setup() {
   Serial.printf("\n[BOOT] sam fw %s | mode=%s | id=%s ble=%s mac=%s | calibrated=%d cpg=%.3f\n", SAM_FW_VERSION,
                 runModeName(s_run), deviceId().c_str(), bleName().c_str(), macHex().c_str(), g_settings.calibrated(),
                 g_settings.countsPerG);
-  g_scale.begin(&s_adc);
+  s_adc = new Hx711Adc(g_settings.hxSck, g_settings.hxDt);
+  g_scale.begin(s_adc);
   if (s_run == RunMode::Wifi) g_net.begin(forceAp);
   else bleBegin(s_run);
   Serial.println("[BOOT] 'help' 로 명령 목록");

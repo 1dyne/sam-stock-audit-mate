@@ -32,7 +32,9 @@ firmware/
 | 보드 | `m5stack_atoms3` |
 | USB CDC On Boot | **Enabled** (`CDCOnBoot=cdc`) — 이게 꺼져 있으면 시리얼 로그가 안 나옴 |
 | USB Mode | Hardware CDC and JTAG (`USBMode=hwcdc`) |
-| Partition | **8M with spiffs (3MB APP/1.5MB SPIFFS)** (`PartitionScheme=default_8MB`) — 0.2.0은 1.31MB라 기본 파티션(1.25MB)에는 안 들어감 |
+| Partition | **8M with spiffs (3MB APP/1.5MB SPIFFS)** (`PartitionScheme=default_8MB`) — 0.2.0은 1.33MB라 기본 파티션(1.2MB)에는 안 들어감 |
+
+**Arduino IDE에서 `ESP32S3 Dev Module`로 해도 됩니다.** 그 경우 USB CDC On Boot **Enabled**, Flash Size **8MB**, Partition **8M with spiffs (3MB APP)**, PSRAM **Disabled**(켜면 LED 핀 G35를 PSRAM이 가져감). FQBN: `esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=8M,PartitionScheme=default_8MB,PSRAM=disabled` — 두 보드 설정 모두 컴파일 확인. 아래 명령의 FQBN을 이것으로 바꿔도 됨.
 
 처음 한 번:
 
@@ -72,6 +74,13 @@ arduino-cli monitor -p COM5 -c baudrate=115200
 - `build/sam_scale.ino.merged.bin`을 0x0에 쓰는 방식(웹 플래셔 등)은 **NVS까지 지워진다** → 처음 굽는 경우에만.
 - 업로드가 안 되면: 리셋 버튼을 LED가 초록으로 바뀔 때까지 약 2초 누르면 다운로드 모드 (ATOMS3 공통).
 
+## 처음 연결 확인 (COM 포트가 안 보일 때)
+
+1. 꽂은 채로 옆면 리셋을 2초 누르고 뗀다 → 장치 관리자 "포트(COM & LPT)"에 새 COM 포트가 생기는지, 윈도우 연결음이 나는지
+2. 아무 변화 없으면 **케이블이 충전 전용**일 가능성이 큼 → 데이터 케이블(휴대폰 데이터 전송 되는 것)로 교체
+3. COM이 생기면 업로드 → 리셋 짧게 1회 → **LED 파랑**이 켜지면 펌웨어가 도는 것 (0.2.0부터 부팅 즉시 파랑)
+4. LED가 **빨강 고정**이면 HX711 응답 없음 → `info`의 `"hx"`가 배선과 맞는지 확인 (실험용 `[6,5,7]`)
+
 ## 시리얼 로그 (115200)
 
 ```
@@ -99,6 +108,7 @@ arduino-cli monitor -p COM5 -c baudrate=115200
 | `unit 10` / `container` | 비상 페이지용 개당 무게·용기 |
 | `ble gatt` / `ble kbd` / `net wifi` | 모드 저장 후 재부팅 |
 | `ble unpair` | 저장된 블루투스 페어링 전부 삭제 (블루투스 모드에서) |
+| `hxpins 6 5 7` / `hxpins 6 5 -1` | HX711 핀 DT SCK GND대용 (실험용 = G7을 GND로 / 밋업 = 진짜 G 배선) → 재부팅 |
 | `ap` | 이번 부팅만 Wi-Fi AP 설정 모드로 재부팅 |
 | `factory` | NVS 초기화 |
 
