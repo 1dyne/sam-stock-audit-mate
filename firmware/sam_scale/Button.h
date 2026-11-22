@@ -1,8 +1,8 @@
-// 내장 버튼 (G41, active LOW). 짧게 / 길게(3초) 이벤트.
+// 내장 버튼 (G41, active LOW). 한 번 / 두 번 / 세 번 / 길게(3초).
 #pragma once
 #include <Arduino.h>
 
-enum class BtnEvent : uint8_t { None, Short, Long };
+enum class BtnEvent : uint8_t { None, Single, Double, Triple, Long };
 
 class Button {
  public:
@@ -12,8 +12,8 @@ class Button {
   bool holding() const { return down_; }
   uint32_t heldMs(uint32_t now) const { return down_ ? now - downT_ : 0; }
  private:
-  uint8_t pin_ = 0;
+  uint8_t pin_ = 0, clicks_ = 0;
   bool down_ = false, longFired_ = false, lastRaw_ = false;
-  uint32_t downT_ = 0, changeT_ = 0;
+  uint32_t downT_ = 0, upT_ = 0, changeT_ = 0;
 };
 extern Button g_button;

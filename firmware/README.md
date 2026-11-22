@@ -1,6 +1,8 @@
 # sam 저울 측정기 펌웨어
 
-M5Stack ATOMS3 Lite + HX711 + 5kg 로드셀. 전체 사양·서버 계약은 [`../SAM_SPEC.md`](../SAM_SPEC.md).
+M5Stack ATOMS3 Lite + HX711 + 5kg 로드셀. 전체 사양·서버 계약은 [`../SAM_SPEC.md`](../SAM_SPEC.md), 블루투스 메시지 형식은 [`../docs/protocol.md`](../docs/protocol.md).
+
+동작 모드(한 번에 하나, NVS 저장): **gatt**(기본, 안드로이드 웹 블루투스) / **kbd**(아이폰 BLE 키보드) / **wifi**(서버 전송·AP). 버튼 세 번 또는 시리얼 `ble gatt`·`ble kbd`·`net wifi`로 전환.
 
 ```
 firmware/
@@ -11,6 +13,7 @@ firmware/
     Scale.*           필터·안정·영점·보정·수량
     Settings.*        NVS (namespace "sam")
     Net.* WebPage.h   Wi-Fi, AP/캡티브 포털, 내장 페이지, 서버 업로드
+    Ble.*             블루투스 GATT(웹 블루투스) / BLE HID 키보드
     Led.* Button.*    입출력
     SerialCli.*       시리얼 명령
   tools/
@@ -25,11 +28,11 @@ firmware/
 |---|---|
 | arduino-cli | 1.1.1 이상 |
 | 보드 패키지 | **esp32:esp32 3.3.13** (Espressif, 버전 고정 — 4.x 아님) |
-| 외부 라이브러리 | **없음** (WiFi, WebServer, DNSServer, ESPmDNS, HTTPClient, NetworkClientSecure, Preferences 모두 코어 내장) |
+| 외부 라이브러리 | **NimBLE-Arduino 2.3.9** (h2zero) 1개. 키보드(HID)는 이 라이브러리의 `NimBLEHIDDevice`로 직접 구현 — 별도 키보드 라이브러리 없음. 나머지(WiFi, WebServer 등)는 코어 내장 |
 | 보드 | `m5stack_atoms3` |
 | USB CDC On Boot | **Enabled** (`CDCOnBoot=cdc`) — 이게 꺼져 있으면 시리얼 로그가 안 나옴 |
 | USB Mode | Hardware CDC and JTAG (`USBMode=hwcdc`) |
-| Partition | 8M with spiffs (`PartitionScheme=default_8MB`) |
+| Partition | **8M with spiffs (3MB APP/1.5MB SPIFFS)** (`PartitionScheme=default_8MB`) — 0.2.0은 1.31MB라 기본 파티션(1.25MB)에는 안 들어감 |
 
 처음 한 번:
 
@@ -43,6 +46,10 @@ arduino-cli core update-index
 
 ```bash
 arduino-cli core install esp32:esp32@3.3.13
+```
+
+```bash
+arduino-cli lib install "NimBLE-Arduino@2.3.9"
 ```
 
 ## 컴파일·업로드·모니터
@@ -90,7 +97,9 @@ arduino-cli monitor -p COM5 -c baudrate=115200
 | `cal 1000` / `cal cancel` | 1000g 기준 보정 시작 / 취소 |
 | `band 0.5` | 안정 밴드(g) |
 | `unit 10` / `container` | 비상 페이지용 개당 무게·용기 |
-| `ap` | AP 설정 모드로 재부팅 |
+| `ble gatt` / `ble kbd` / `net wifi` | 모드 저장 후 재부팅 |
+| `ble unpair` | 저장된 블루투스 페어링 전부 삭제 (블루투스 모드에서) |
+| `ap` | 이번 부팅만 Wi-Fi AP 설정 모드로 재부팅 |
 | `factory` | NVS 초기화 |
 
 ## 단계별 확인 (다인 PC에서)
@@ -101,6 +110,17 @@ arduino-cli monitor -p COM5 -c baudrate=115200
 ④ AP: 버튼 누른 채 전원 → LED 보라 → 폰 Wi-Fi에서 `sam-07` 접속 → 페이지 자동으로 뜨는지(안 뜨면 `http://192.168.4.1`) → `/setup`에서 공유기 저장 → 재부팅 후 초록
 ⑤ 서버: PC에서 `python tools/mock_server.py --key test` → 측정기 `server http://<PC IP>:8080/api/v1/readings`, `key test` → 서버 콘솔에 `[sam-07] ... g` 출력, 브라우저 `http://localhost:8080`에서 영점/찾기 명령
 ⑥ 버튼/LED: 짧게 → 흰색 잠깐 후 초록, 길게 3초 → 흰색 깜빡(보정), 다시 짧게 → 취소
+
+## 블루투스 확인 (0.2.0, 다인 PC·폰에서)
+
+1. **GATT 5Hz**: `ble gatt` → LED 청록 깜빡 → 안드로이드 Chrome에서 PWA(또는 `chrome://bluetooth-internals`)로 `dalgrak-scale-07` 연결 → reading 구독 → 시리얼 `[BLE] subscribe reading=1`, 1초에 5개 들어오는지
+2. **명령**: command에 `{"cmd":"tare"}` → event `tare_done`. `{"cmd":"unit","n":10}` → `unit_result`. `{"cmd":"cal","ref":1000}` → `cal_step` empty → load → ok
+3. **아이폰 페어링**: `ble kbd` → LED 보라 깜빡 → 아이폰 설정 → 블루투스 → `dalgrak-scale-07` 탭 → 시리얼 `[BLE] auth encrypted=1 bonded=1`, LED 보라 고정
+4. **입력**: 메모 앱 커서 → 저울에 물건 → 버튼 한 번 → `1000.0` + 줄바꿈
+5. **흔들림**: 손으로 흔들면서 버튼 → 5초 뒤 LED 빨강, 아무것도 입력 안 됨 (`[KBD] not stable`)
+6. **유지**: 전원 껐다 켜기 → `[BOOT] ... mode=kbd`, 아이폰이 자동 재연결 (다시 페어링 안 함)
+
+아이폰에서 하드웨어 키보드가 연결되면 화면 키보드가 숨겨진다. 메모 앱 화면 아래 키보드 아이콘(⌄)을 길게 누르면 다시 나온다 (미검증).
 
 ## 양산 (1대 5분 목표)
 

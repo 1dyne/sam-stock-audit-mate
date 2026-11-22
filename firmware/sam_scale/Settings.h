@@ -2,6 +2,10 @@
 #pragma once
 #include <Arduino.h>
 
+enum class RunMode : uint8_t { Wifi = 0, Gatt = 1, Kbd = 2 };
+const char *runModeName(RunMode m);
+
+
 struct Settings {
   uint8_t devNo = 0;            // 스티커 번호 1~99, 0 = 미설정(MAC 뒤 4자리 사용)
   String wifiSsid, wifiPass;
@@ -13,7 +17,8 @@ struct Settings {
   float unitG = 0;              // 비상 페이지용 개당 무게 (온라인 수량은 PWA가 계산)
   float containerG = 0;         // 비상 페이지용 빈 용기 무게
   bool azt = true;              // 영점 추적
-  uint8_t logLevel = 1;         // 0 끔, 1 = 2Hz 요약, 2 = 샘플마다
+  uint8_t logLevel = 1;
+  RunMode mode = RunMode::Gatt; // 기본: 혼자·폰 하나·서버 없음 (안드로이드 웹 블루투스)         // 0 끔, 1 = 2Hz 요약, 2 = 샘플마다
 
   void load();
   void save();

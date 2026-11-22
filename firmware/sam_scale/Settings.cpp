@@ -3,6 +3,15 @@
 #include "config.h"
 
 Settings g_settings;
+
+const char *runModeName(RunMode m) {
+  switch (m) {
+    case RunMode::Wifi: return "wifi";
+    case RunMode::Gatt: return "gatt";
+    case RunMode::Kbd: return "kbd";
+  }
+  return "?";
+}
 static const char *NS = "sam";
 static const uint8_t SCHEMA = 1;
 
@@ -22,6 +31,8 @@ void Settings::load() {
   containerG = p.getFloat("cont_g", 0);
   azt = p.getBool("azt", true);
   logLevel = p.getUChar("log", 1);
+  uint8_t m = p.getUChar("mode", (uint8_t)RunMode::Gatt);
+  mode = m <= 2 ? (RunMode)m : RunMode::Gatt;
   p.end();
 }
 
@@ -42,6 +53,7 @@ void Settings::save() {
   p.putFloat("cont_g", containerG);
   p.putBool("azt", azt);
   p.putUChar("log", logLevel);
+  p.putUChar("mode", (uint8_t)mode);
   p.end();
 }
 

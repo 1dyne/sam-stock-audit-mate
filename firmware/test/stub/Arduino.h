@@ -12,6 +12,12 @@ using std::min; using std::max;
 extern uint32_t g_fakeMillis;
 inline uint32_t millis() { return g_fakeMillis; }
 inline void delay(uint32_t) {}
+#define LOW 0
+#define HIGH 1
+#define INPUT_PULLUP 2
+extern int g_fakePin;
+inline void pinMode(uint8_t, uint8_t) {}
+inline int digitalRead(uint8_t) { return g_fakePin; }
 class String : public std::string {
  public:
   String() {}

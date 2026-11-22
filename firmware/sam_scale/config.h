@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define SAM_FW_VERSION "0.1.0"
+#define SAM_FW_VERSION "0.2.0"
 #define SAM_CONTRACT_VERSION 1   // SAM_SPEC.md "펌웨어 ↔ 서버 데이터 계약" 버전
 
 // ── 핀 (ATOMS3 Lite, 실측 배선 — 바꾸지 말 것) ──
@@ -34,6 +34,7 @@
 // ── 버튼 ──
 #define BTN_DEBOUNCE_MS  30
 #define BTN_LONG_MS      3000
+#define BTN_MULTI_MS     350   // 두 번/세 번 누름 판정 간격 (한 번 누름은 이만큼 늦게 확정)
 
 // ── 통신 ──
 #define WIFI_CONNECT_TIMEOUT_MS 20000
@@ -44,6 +45,20 @@
 #define UPLOAD_DELTA_G          0.2f   // 이만큼 바뀌면 즉시 전송
 #define HTTP_TIMEOUT_MS         3000
 #define AP_IP_STR               "192.168.4.1"
+
+// ── 블루투스 (docs/protocol.md) ──
+#define BLE_NAME_PREFIX     "dalgrak-scale-"   // + 스티커 번호 2자리 (미설정이면 MAC 뒤 4자리)
+#define BLE_SVC_UUID        "8f54b060-bfdc-4675-9b5c-7e456e1be5a7"
+#define BLE_READING_UUID    "1f2184fe-273d-4949-be14-af1f11ea3346"
+#define BLE_EVENT_UUID      "6f6a7bfe-c30c-44f1-9b40-9bf5b0965d0b"
+#define BLE_COMMAND_UUID    "3db8af36-2b8d-4e5e-9ba4-5388f2606dc4"
+#define BLE_INFO_UUID       "052f3d6b-6e53-44d2-864b-7cbbc0f1f557"
+#define BLE_MTU             247
+#define BLE_MSG_MAX         180   // 모든 JSON 메시지 상한 (MTU 협상 실패해도 잘리지 않게 관리)
+#define GATT_READING_MS     200   // 구독 중 5Hz
+#define KBD_WAIT_STABLE_MS  5000  // 키보드 모드: 버튼 후 안정까지 최대 대기
+#define KBD_KEY_DELAY_MS    12    // 키 누름/뗌 사이 간격
+#define CMD_UNIT_WAIT_MS    5000  // unit 명령: 안정까지 최대 대기
 
 // ── 빌드 시 기본값 (선택) ──
 // firmware/sam_scale/secrets.h 를 만들면(깃에 안 올라감) 13대 공통 Wi-Fi/서버를 바이너리에 넣을 수 있다.

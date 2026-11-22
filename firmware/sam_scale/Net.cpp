@@ -119,6 +119,7 @@ void Net::stopAp() {
 }
 
 void Net::loop(uint32_t now) {
+  if (mode_ == NetMode::Off) return;  // 블루투스 모드에선 Wi-Fi 안 켬
   if (apOn_) s_dns.processNextRequest();
   s_web.handleClient();
 

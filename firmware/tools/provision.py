@@ -85,7 +85,7 @@ def main():
 
     print("④ 확인")
     send(s, "reboot"); s.close(); time.sleep(3); s = open_port(o.port)
-    wait_for(s, ["[WIFI] online", "connect timeout", "AP \""], 30)
+    wait_for(s, ["[WIFI] online", "connect timeout", "AP \"", "[BLE] "], 30)
     send(s, "log 0")
     s.reset_input_buffer()
     send(s, "info")

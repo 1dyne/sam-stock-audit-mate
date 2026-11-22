@@ -4,6 +4,12 @@
 #include "Scale.h"
 #include "Net.h"
 #include "config.h"
+#include "Ble.h"
+#include <NimBLEDevice.h>
+
+extern void requestApReboot();
+extern void requestModeSwitch(RunMode m);
+extern RunMode currentRunMode();
 
 static String s_line;
 
@@ -25,19 +31,22 @@ static void help() {
       "  container | container 0  현재 무게를 용기로 / 용기 0\n"
       "  azt <0|1>             영점 추적\n"
       "  log <0|1|2>           로그: 끔 / 2Hz / 샘플마다\n"
-      "  ap                    AP(설정) 모드로 재부팅\n"
+      "  ble gatt | ble kbd    블루투스 GATT(웹 블루투스) / 키보드 모드 → NVS 저장, 재부팅\n"
+      "  net wifi              Wi-Fi(서버 전송·AP) 모드 → NVS 저장, 재부팅\n"
+      "  ble unpair            저장된 블루투스 페어링 전부 삭제\n"
+      "  ap                    이번 부팅만 Wi-Fi AP(설정) 모드로 재부팅\n"
       "  reboot | factory      재부팅 / NVS 전부 지우기"));
 }
 
 void cliPrintInfo() {
   ServerStatus sv = g_net.server();
   Serial.printf(
-      "{\"device_id\":\"%s\",\"device_no\":%u,\"mac\":\"%s\",\"fw_version\":\"%s\",\"calibrated\":%s,"
+      "{\"device_id\":\"%s\",\"ble_name\":\"%s\",\"mode\":\"%s\",\"run\":\"%s\",\"device_no\":%u,\"mac\":\"%s\",\"fw_version\":\"%s\",\"calibrated\":%s,"
       "\"counts_per_g\":%.4f,\"zero\":%.1f,\"cal_ref_g\":%.1f,\"stable_band_g\":%.2f,\"azt\":%s,"
       "\"unit_g\":%.3f,\"container_g\":%.2f,\"wifi_ssid\":\"%s\",\"wifi_pass_set\":%s,\"server_url\":\"%s\","
       "\"server_key_set\":%s,\"net\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,\"srv_ok\":%s,\"srv_code\":%d,"
       "\"srv_sent\":%lu,\"srv_failed\":%lu,\"weight_g\":%.2f,\"raw\":%ld,\"stable\":%s,\"adc_ok\":%s}\n",
-      deviceId().c_str(), g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
+      deviceId().c_str(), bleName().c_str(), runModeName(g_settings.mode), runModeName(currentRunMode()), g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
       g_settings.calibrated() ? "true" : "false", g_settings.countsPerG, g_settings.zeroOffset, g_settings.calRefG,
       g_settings.stableBandG, g_settings.azt ? "true" : "false", g_settings.unitG, g_settings.containerG,
       g_settings.wifiSsid.c_str(), g_settings.wifiPass.isEmpty() ? "false" : "true", g_settings.serverUrl.c_str(),
@@ -46,7 +55,7 @@ void cliPrintInfo() {
       (long)g_scale.raw(), g_scale.stable() ? "true" : "false", g_scale.adcOk() ? "true" : "false");
 }
 
-extern void requestApReboot();
+
 
 static void exec(String line) {
   line.trim();
@@ -85,6 +94,13 @@ static void exec(String line) {
     else Serial.println(g_scale.setContainerFromCurrent(err) ? "OK" : "ERR " + err);
   } else if (cmd == "azt") { g_settings.azt = arg.toInt() != 0; g_settings.save(); Serial.println("OK"); }
   else if (cmd == "log") { g_settings.logLevel = arg.toInt(); g_settings.save(); Serial.println("OK"); }
+  else if (cmd == "ble" && arg == "gatt") requestModeSwitch(RunMode::Gatt);
+  else if (cmd == "ble" && arg == "kbd") requestModeSwitch(RunMode::Kbd);
+  else if (cmd == "net" && arg == "wifi") requestModeSwitch(RunMode::Wifi);
+  else if (cmd == "ble" && arg == "unpair") {
+    if (currentRunMode() == RunMode::Wifi) Serial.println("ERR 블루투스 모드에서 실행");
+    else Serial.println(NimBLEDevice::deleteAllBonds() ? "OK bonds deleted" : "ERR");
+  }
   else if (cmd == "ap") requestApReboot();
   else if (cmd == "reboot") ESP.restart();
   else if (cmd == "factory") { g_settings.factoryReset(); Serial.println("OK NVS cleared → reboot"); delay(300); ESP.restart(); }
