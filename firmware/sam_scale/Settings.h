@@ -1,0 +1,25 @@
+// 기기별 값 — NVS(Preferences, namespace "sam")에 저장. 같은 바이너리 13대 공통.
+#pragma once
+#include <Arduino.h>
+
+struct Settings {
+  uint8_t devNo = 0;            // 스티커 번호 1~99, 0 = 미설정(MAC 뒤 4자리 사용)
+  String wifiSsid, wifiPass;
+  String serverUrl, serverKey;
+  float countsPerG = 0;         // 0 = 미보정
+  float zeroOffset = 0;         // 영점 raw
+  float calRefG = 0;
+  float stableBandG = 0;
+  float unitG = 0;              // 비상 페이지용 개당 무게 (온라인 수량은 PWA가 계산)
+  float containerG = 0;         // 비상 페이지용 빈 용기 무게
+  bool azt = true;              // 영점 추적
+  uint8_t logLevel = 1;         // 0 끔, 1 = 2Hz 요약, 2 = 샘플마다
+
+  void load();
+  void save();
+  void saveZero();              // 영점만 빠르게 저장
+  void factoryReset();
+  bool calibrated() const { return countsPerG != 0; }
+};
+
+extern Settings g_settings;

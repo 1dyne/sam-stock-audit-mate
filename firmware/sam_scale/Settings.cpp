@@ -1,0 +1,62 @@
+#include "Settings.h"
+#include <Preferences.h>
+#include "config.h"
+
+Settings g_settings;
+static const char *NS = "sam";
+static const uint8_t SCHEMA = 1;
+
+void Settings::load() {
+  Preferences p;
+  p.begin(NS, true);
+  devNo = p.getUChar("dev_no", 0);
+  wifiSsid = p.getString("wifi_ssid", SAM_DEFAULT_WIFI_SSID);
+  wifiPass = p.getString("wifi_pass", SAM_DEFAULT_WIFI_PASS);
+  serverUrl = p.getString("srv_url", SAM_DEFAULT_SERVER_URL);
+  serverKey = p.getString("srv_key", SAM_DEFAULT_SERVER_KEY);
+  countsPerG = p.getFloat("cpg", 0);
+  zeroOffset = p.getFloat("zero", 0);
+  calRefG = p.getFloat("cal_ref", CAL_REF_G_DEFAULT);
+  stableBandG = p.getFloat("st_band", STABLE_BAND_G_DEFAULT);
+  unitG = p.getFloat("unit_g", 0);
+  containerG = p.getFloat("cont_g", 0);
+  azt = p.getBool("azt", true);
+  logLevel = p.getUChar("log", 1);
+  p.end();
+}
+
+void Settings::save() {
+  Preferences p;
+  p.begin(NS, false);
+  p.putUChar("schema", SCHEMA);
+  p.putUChar("dev_no", devNo);
+  p.putString("wifi_ssid", wifiSsid);
+  p.putString("wifi_pass", wifiPass);
+  p.putString("srv_url", serverUrl);
+  p.putString("srv_key", serverKey);
+  p.putFloat("cpg", countsPerG);
+  p.putFloat("zero", zeroOffset);
+  p.putFloat("cal_ref", calRefG);
+  p.putFloat("st_band", stableBandG);
+  p.putFloat("unit_g", unitG);
+  p.putFloat("cont_g", containerG);
+  p.putBool("azt", azt);
+  p.putUChar("log", logLevel);
+  p.end();
+}
+
+void Settings::saveZero() {
+  Preferences p;
+  p.begin(NS, false);
+  p.putFloat("zero", zeroOffset);
+  p.end();
+}
+
+void Settings::factoryReset() {
+  Preferences p;
+  p.begin(NS, false);
+  p.clear();
+  p.end();
+  *this = Settings();
+  load();
+}
