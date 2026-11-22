@@ -1,6 +1,6 @@
 # 셈 저울 ↔ 폰/서버 메시지 형식
 
-펌웨어 0.2.0 기준. 기기 쪽 구현: `firmware/sam_scale/Ble.cpp`, `main.cpp`, `Net.cpp`.
+펌웨어 0.2.0 기준. 기기 쪽 구현: `firmware/sam_scale/Ble.cpp`, `sam_main.cpp`, `Net.cpp`.
 이 문서가 PWA 블루투스 드라이버와 펌웨어 사이의 기준이다. 바꿀 때는 양쪽 세션이 함께 고친다.
 
 ## 동작 모드 (한 번에 하나, NVS 저장)
