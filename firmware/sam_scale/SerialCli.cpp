@@ -5,7 +5,6 @@
 #include "Net.h"
 #include "config.h"
 #include "Ble.h"
-#include <NimBLEDevice.h>
 
 extern void requestApReboot();
 extern void requestModeSwitch(RunMode m);
@@ -100,7 +99,7 @@ static void exec(String line) {
   else if (cmd == "net" && arg == "wifi") requestModeSwitch(RunMode::Wifi);
   else if (cmd == "ble" && arg == "unpair") {
     if (currentRunMode() == RunMode::Wifi) Serial.println("ERR 블루투스 모드에서 실행");
-    else Serial.println(NimBLEDevice::deleteAllBonds() ? "OK bonds deleted" : "ERR");
+    else Serial.println(bleDeleteBonds() ? "OK bonds deleted" : "ERR");
   }
   else if (cmd == "hxpins") {
     int dt = -2, sck = -2, gnd = -2;

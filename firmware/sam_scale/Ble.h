@@ -12,4 +12,5 @@ bool bleReadingSubscribed();
 const String &bleName();
 void bleEvent(const char *json);    // GATT event notify (구독 중일 때만)
 bool bleTakeCommand(char *buf, size_t n);  // GATT command write 큐에서 하나 꺼내기
-bool bleTypeText(const char *s);    // 키보드: 숫자·'.'·'-'·'\n'만 지원
+bool bleTypeText(const char *s);
+bool bleDeleteBonds();             // 저장된 페어링 전부 삭제    // 키보드: 숫자·'.'·'-'·'\n'만 지원

@@ -28,13 +28,13 @@ firmware/
 |---|---|
 | arduino-cli | 1.1.1 이상 |
 | 보드 패키지 | **esp32:esp32 3.3.13** (Espressif, 버전 고정 — 4.x 아님) |
-| 외부 라이브러리 | **NimBLE-Arduino 2.3.9** (h2zero) 1개. 키보드(HID)는 이 라이브러리의 `NimBLEHIDDevice`로 직접 구현 — 별도 키보드 라이브러리 없음. 나머지(WiFi, WebServer 등)는 코어 내장 |
+| 외부 라이브러리 | **없음** — 블루투스도 보드 패키지에 기본으로 들어 있는 `BLE` 라이브러리(3.3.13) 사용. HX711도 직접 구현이라 HX711 라이브러리가 없어도 되고, 설치돼 있어도 충돌 없음 |
 | 보드 | `m5stack_atoms3` |
 | USB CDC On Boot | **Enabled** (`CDCOnBoot=cdc`) — 이게 꺼져 있으면 시리얼 로그가 안 나옴 |
 | USB Mode | Hardware CDC and JTAG (`USBMode=hwcdc`) |
-| Partition | **8M with spiffs (3MB APP/1.5MB SPIFFS)** (`PartitionScheme=default_8MB`) — 0.2.0은 1.33MB라 기본 파티션(1.2MB)에는 안 들어감 |
+| Partition | **8M with spiffs (3MB APP/1.5MB SPIFFS)** (`PartitionScheme=default_8MB`) — 0.2.0은 1.38MB라 기본 파티션(1.2MB)에는 안 들어감 |
 
-**Arduino IDE에서 `ESP32S3 Dev Module`로 해도 됩니다.** 그 경우 USB CDC On Boot **Enabled**, Flash Size **8MB**, Partition **8M with spiffs (3MB APP)**, PSRAM **Disabled**(켜면 LED 핀 G35를 PSRAM이 가져감). FQBN: `esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=8M,PartitionScheme=default_8MB,PSRAM=disabled` — 두 보드 설정 모두 컴파일 확인. 아래 명령의 FQBN을 이것으로 바꿔도 됨.
+**Arduino IDE 보드는 **M5AtomS3** (esp32 by Espressif 3.3.x 안의 항목, `M5Atom`은 다른 보드라 안 됨). `ESP32S3 Dev Module`로 해도 됩니다.** 그 경우 USB CDC On Boot **Enabled**, Flash Size **8MB**, Partition **8M with spiffs (3MB APP)**, PSRAM **Disabled**(켜면 LED 핀 G35를 PSRAM이 가져감). FQBN: `esp32:esp32:esp32s3:CDCOnBoot=cdc,USBMode=hwcdc,FlashSize=8M,PartitionScheme=default_8MB,PSRAM=disabled` — 두 보드 설정 모두 컴파일 확인. 아래 명령의 FQBN을 이것으로 바꿔도 됨.
 
 처음 한 번:
 
@@ -50,9 +50,6 @@ arduino-cli core update-index
 arduino-cli core install esp32:esp32@3.3.13
 ```
 
-```bash
-arduino-cli lib install "NimBLE-Arduino@2.3.9"
-```
 
 ## 컴파일·업로드·모니터
 

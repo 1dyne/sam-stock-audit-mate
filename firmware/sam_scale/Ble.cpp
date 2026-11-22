@@ -1,16 +1,21 @@
+// 블루투스 — ESP32 보드 패키지에 기본으로 들어 있는 BLE 라이브러리만 사용 (따로 설치할 라이브러리 없음)
 #include "Ble.h"
-#include <NimBLEDevice.h>
-#include <NimBLEHIDDevice.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEHIDDevice.h>
+#include <BLESecurity.h>
 #include <esp_mac.h>
+#include "host/ble_gap.h"
+#include "host/ble_store.h"
 #include "config.h"
 #include "Scale.h"
 #include "Net.h"
 
 static RunMode s_mode = RunMode::Gatt;
-static NimBLEServer *s_srv = nullptr;
-static NimBLECharacteristic *s_reading = nullptr, *s_event = nullptr, *s_info = nullptr, *s_command = nullptr;
-static NimBLEHIDDevice *s_hid = nullptr;
-static NimBLECharacteristic *s_kbdInput = nullptr;
+static BLEServer *s_srv = nullptr;
+static BLECharacteristic *s_reading = nullptr, *s_event = nullptr, *s_info = nullptr, *s_command = nullptr;
+static BLEHIDDevice *s_hid = nullptr;
+static BLECharacteristic *s_kbdInput = nullptr;
 static volatile bool s_connected = false, s_secured = false, s_readingSub = false, s_eventSub = false;
 static QueueHandle_t s_cmdQ = nullptr;
 static uint32_t s_lastReading = 0;
@@ -39,48 +44,52 @@ static String buildInfo() {
   return String(b);
 }
 
-class SrvCb : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer *, NimBLEConnInfo &ci) override {
+class SrvCb : public BLEServerCallbacks {
+  void onConnect(BLEServer *, ble_gap_conn_desc *desc) override {
     s_connected = true;
-    Serial.printf("[BLE] connected %s\n", ci.getAddress().toString().c_str());
-    if (s_mode == RunMode::Kbd) NimBLEDevice::startSecurity(ci.getConnHandle());  // 아이폰 페어링 시작
+    Serial.printf("[BLE] connected handle=%u\n", desc->conn_handle);
+    if (s_mode == RunMode::Kbd) ble_gap_security_initiate(desc->conn_handle);  // 아이폰 페어링 시작
   }
-  void onDisconnect(NimBLEServer *, NimBLEConnInfo &, int reason) override {
+  void onDisconnect(BLEServer *srv, ble_gap_conn_desc *) override {
     s_connected = false;
     s_secured = false;
     s_readingSub = false;
     s_eventSub = false;
-    Serial.printf("[BLE] disconnected reason=%d → advertising\n", reason);
+    Serial.println("[BLE] disconnected → advertising");
+    srv->startAdvertising();
   }
-  void onMTUChange(uint16_t mtu, NimBLEConnInfo &) override { Serial.printf("[BLE] MTU=%u\n", mtu); }
-  void onAuthenticationComplete(NimBLEConnInfo &ci) override {
-    s_secured = ci.isEncrypted();
-    Serial.printf("[BLE] auth encrypted=%d bonded=%d\n", ci.isEncrypted(), ci.isBonded());
+  void onMtuChanged(BLEServer *, ble_gap_conn_desc *, uint16_t mtu) override { Serial.printf("[BLE] MTU=%u\n", mtu); }
+};
+
+class SecCb : public BLESecurityCallbacks {
+  void onAuthenticationComplete(ble_gap_conn_desc *desc) override {
+    s_secured = desc->sec_state.encrypted;
+    Serial.printf("[BLE] auth encrypted=%d bonded=%d\n", desc->sec_state.encrypted, desc->sec_state.bonded);
   }
 };
 
-class ChrCb : public NimBLECharacteristicCallbacks {
-  void onWrite(NimBLECharacteristic *c, NimBLEConnInfo &) override {
+class ChrCb : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *c) override {
     if (c != s_command) return;
     CmdMsg m;
-    std::string v = c->getValue();
-    strlcpy(m.s, v.c_str(), sizeof m.s);
+    strlcpy(m.s, c->getValue().c_str(), sizeof m.s);
     if (xQueueSend(s_cmdQ, &m, 0) != pdTRUE) Serial.println("[BLE] command queue full");
   }
-  void onRead(NimBLECharacteristic *c, NimBLEConnInfo &) override {
+  void onRead(BLECharacteristic *c) override {
     if (c == s_info) c->setValue(buildInfo());
   }
-  void onSubscribe(NimBLECharacteristic *c, NimBLEConnInfo &, uint16_t sub) override {
+  void onSubscribe(BLECharacteristic *c, ble_gap_conn_desc *, uint16_t sub) override {
     if (c == s_reading) s_readingSub = sub & 1;
     if (c == s_event) s_eventSub = sub & 1;
     Serial.printf("[BLE] subscribe %s=%u\n", c == s_reading ? "reading" : c == s_event ? "event" : "?", sub);
   }
 };
 static SrvCb s_srvCb;
+static SecCb s_secCb;
 static ChrCb s_chrCb;
 
 // 표준 키보드 리포트 맵 (Report ID 1: 입력 8바이트, 출력 LED 1바이트)
-static const uint8_t KBD_REPORT_MAP[] = {
+static uint8_t KBD_REPORT_MAP[] = {
     0x05, 0x01, 0x09, 0x06, 0xA1, 0x01, 0x85, 0x01,                   // Keyboard, Report ID 1
     0x05, 0x07, 0x19, 0xE0, 0x29, 0xE7, 0x15, 0x00, 0x25, 0x01,       // modifiers
     0x75, 0x01, 0x95, 0x08, 0x81, 0x02,
@@ -94,60 +103,62 @@ static const uint8_t KBD_REPORT_MAP[] = {
 static void setModeAddress(RunMode m) {
   uint8_t mac[6], a[6];
   esp_read_mac(mac, ESP_MAC_BT);
-  for (int i = 0; i < 6; i++) a[i] = mac[5 - i];  // NimBLE은 리틀엔디언
+  for (int i = 0; i < 6; i++) a[i] = mac[5 - i];  // 리틀엔디언
   a[0] ^= (m == RunMode::Kbd) ? 0x02 : 0x01;
   a[5] |= 0xC0;  // static random
-  NimBLEDevice::setOwnAddr(a);
-  NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
+  BLEDevice::setOwnAddr(a);
+  BLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
 }
 
 void bleBegin(RunMode m) {
   s_mode = m;
-  NimBLEDevice::init(bleName().c_str());
+  BLEDevice::init(bleName());
   setModeAddress(m);
-  NimBLEDevice::setMTU(BLE_MTU);
-  s_srv = NimBLEDevice::createServer();
+  BLEDevice::setMTU(BLE_MTU);
+  s_srv = BLEDevice::createServer();
   s_srv->setCallbacks(&s_srvCb);
-  s_srv->advertiseOnDisconnect(true);
-  NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
-  NimBLEAdvertisementData ad, sr;
-  ad.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+  BLEAdvertising *adv = BLEDevice::getAdvertising();
+  BLEAdvertisementData ad, sr;
+  ad.setFlags(0x06);  // LE General Discoverable, BR/EDR 미지원
 
   if (m == RunMode::Gatt) {
     s_cmdQ = xQueueCreate(4, sizeof(CmdMsg));
-    NimBLEService *svc = s_srv->createService(BLE_SVC_UUID);
-    s_reading = svc->createCharacteristic(BLE_READING_UUID, NIMBLE_PROPERTY::NOTIFY);
-    s_event = svc->createCharacteristic(BLE_EVENT_UUID, NIMBLE_PROPERTY::NOTIFY);
-    s_command = svc->createCharacteristic(BLE_COMMAND_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
-    s_info = svc->createCharacteristic(BLE_INFO_UUID, NIMBLE_PROPERTY::READ);
+    BLEService *svc = s_srv->createService(BLE_SVC_UUID);
+    s_reading = svc->createCharacteristic(BLE_READING_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+    s_event = svc->createCharacteristic(BLE_EVENT_UUID, BLECharacteristic::PROPERTY_NOTIFY);
+    s_command = svc->createCharacteristic(BLE_COMMAND_UUID, BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_WRITE_NR);
+    s_info = svc->createCharacteristic(BLE_INFO_UUID, BLECharacteristic::PROPERTY_READ);
     for (auto *c : {s_reading, s_event, s_command, s_info}) c->setCallbacks(&s_chrCb);
     s_info->setValue(buildInfo());
     svc->start();
-    ad.setCompleteServices(NimBLEUUID(BLE_SVC_UUID));  // 3+18 = 21바이트
-    sr.setName(bleName().c_str());                       // 이름은 스캔 응답에 (31바이트 제한)
+    ad.setCompleteServices(BLEUUID(BLE_SVC_UUID));  // 3+18 = 21바이트
+    sr.setName(bleName());                         // 이름은 스캔 응답에 (31바이트 제한)
+    adv->setScanResponse(true);
+    adv->setScanResponseData(sr);
   } else {
-    NimBLEDevice::setSecurityAuth(true, false, true);    // 본딩, MITM 없음(Just Works), SC
-    NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
-    s_hid = new NimBLEHIDDevice(s_srv);
-    s_kbdInput = s_hid->getInputReport(1);
-    s_hid->getOutputReport(1);
-    s_hid->setManufacturer("1dyne");
-    s_hid->setPnp(0x02, 0x303A, 0x5341, 0x0200);
-    s_hid->setHidInfo(0x00, 0x01);
-    s_hid->setReportMap((uint8_t *)KBD_REPORT_MAP, sizeof KBD_REPORT_MAP);
-    s_hid->setBatteryLevel(100);
+    BLESecurity::setAuthenticationMode(true, false, true);  // 본딩, MITM 없음(Just Works), SC
+    BLESecurity::setCapability(BLE_HS_IO_NO_INPUT_OUTPUT);
+    BLEDevice::setSecurityCallbacks(&s_secCb);
+    s_hid = new BLEHIDDevice(s_srv);
+    s_kbdInput = s_hid->inputReport(1);
+    s_hid->outputReport(1);
+    s_hid->manufacturer(String("1dyne"));
+    s_hid->pnp(0x02, 0x303A, 0x5341, 0x0200);
+    s_hid->hidInfo(0x00, 0x01);
+    s_hid->reportMap(KBD_REPORT_MAP, sizeof KBD_REPORT_MAP);
     s_hid->startServices();
+    s_hid->setBatteryLevel(100);
     ad.setAppearance(0x03C1);  // HID Keyboard
-    ad.setCompleteServices(s_hid->getHidService()->getUUID());
-    ad.setName(bleName().c_str());  // 3+4+4+18 = 29바이트
+    ad.setCompleteServices(s_hid->hidService()->getUUID());
+    ad.setName(bleName());  // 3+4+4+18 = 29바이트
   }
-  adv->enableScanResponse(m == RunMode::Gatt);
   adv->setAdvertisementData(ad);
-  if (m == RunMode::Gatt) adv->setScanResponseData(sr);
   adv->start();
   Serial.printf("[BLE] %s mode advertising as \"%s\" addr=%s\n", runModeName(m), bleName().c_str(),
-                NimBLEDevice::getAddress().toString().c_str());
+                BLEDevice::getAddress().toString().c_str());
 }
+
+bool bleDeleteBonds() { return ble_store_clear() == 0; }
 
 void bleEvent(const char *json) {
   if (s_mode != RunMode::Gatt || !s_event) return;
@@ -155,7 +166,7 @@ void bleEvent(const char *json) {
   if (n > BLE_MSG_MAX) Serial.printf("[BLE] event too long (%u)\n", (unsigned)n);
   Serial.printf("[BLE] event %s\n", json);
   if (!s_connected || !s_eventSub) return;
-  s_event->setValue((const uint8_t *)json, min<size_t>(n, BLE_MSG_MAX));
+  s_event->setValue((uint8_t *)json, min<size_t>(n, BLE_MSG_MAX));
   s_event->notify();
 }
 
@@ -175,7 +186,7 @@ void bleLoop(uint32_t now) {
             g_settings.calibrated() && g_scale.ready();
   char b[48];
   snprintf(b, sizeof b, "{\"t\":\"r\",\"g\":%.1f,\"s\":%d}", g_scale.weightG(), ok ? 1 : 0);
-  s_reading->setValue((const uint8_t *)b, strlen(b));
+  s_reading->setValue((uint8_t *)b, strlen(b));
   s_reading->notify();
 }
 
