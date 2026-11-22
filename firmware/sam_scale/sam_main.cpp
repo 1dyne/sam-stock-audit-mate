@@ -1,5 +1,5 @@
 #include <Arduino.h>
-// sam (smart audit mate, "셈") — 저울 측정기 펌웨어 본체 (.ino 전처리를 피하려고 .cpp에 둠)
+// sam (smart audit mate, "셈") — 저울 측정기 펌웨어 본체. setup()/loop()은 sam_scale.ino에서 samSetup()/samLoop()을 부른다
 // 보드: M5Stack ATOMS3 Lite (ESP32-S3) + HX711 + 5kg 로드셀
 // 동작 모드(NVS, 한 번에 하나): gatt(기본, 웹 블루투스) / kbd(BLE 키보드) / wifi(서버 전송·AP)
 #include <Preferences.h>
@@ -312,7 +312,7 @@ static void hxGroundEarly(int pin) {
   gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_3);  // 최대 구동력 (싱크 전압 강하 최소화)
 }
 
-void setup() {
+void samSetup() {
   // 1) HX711 GND 대용 핀 (NVS 읽기 전엔 기본값 G7로 먼저 — 실험용 보드가 바로 켜지게)
   hxGroundEarly(HX_GND_DEFAULT);
   // 2) 부팅 LED 파랑 — 전원·부팅 눈으로 확인
@@ -348,7 +348,7 @@ void setup() {
   Serial.println("[BOOT] 'help' 로 명령 목록");
 }
 
-void loop() {
+void samLoop() {
   uint32_t now = millis();
   bool newSample = g_scale.update(now);
   handleButton(now);

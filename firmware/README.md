@@ -6,7 +6,7 @@ M5Stack ATOMS3 Lite + HX711 + 5kg 로드셀. 전체 사양·서버 계약은 [`.
 
 ```
 firmware/
-  sam_scale/          Arduino 스케치 (본체는 main.cpp, .ino는 비어 있음)
+  sam_scale/          Arduino 스케치 (.ino는 setup/loop만, 본체는 sam_main.cpp)
     config.h          핀·임계값·주기 (13대 공통)
     secrets.example.h → secrets.h 로 복사 (공유기·서버 기본값, git 제외)
     ScaleAdc.h        ADC 인터페이스  ← Hx711Adc.*  (다른 ADC는 여기 구현 추가)
