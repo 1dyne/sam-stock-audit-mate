@@ -32,6 +32,7 @@ const ROUTES = [
 
 const root = document.getElementById('app');
 let current = null;
+let renderSeq = 0;
 
 function match(path) {
   const parts = path.split('/').filter(Boolean);
@@ -49,8 +50,11 @@ export async function render() {
   const path = location.hash.replace(/^#\/?/, '').split('?')[0];
   if (!S.settings.onboarded && !path.startsWith('start')) { location.replace('#/start/0'); return; }
   const m = match(path) || match('');
+  const seq = ++renderSeq;
+  const next = await m.fn(m.params);
+  if (seq !== renderSeq) return; // 그사이 다른 화면으로 넘어갔으면 버린다
   if (current?.unmount) { try { current.unmount(); } catch { /* */ } }
-  current = await m.fn(m.params);
+  current = next;
   root.innerHTML = current.html;
   root.scrollTop = 0;
   window.scrollTo(0, 0);
