@@ -1,1 +1,4 @@
+.wrangler/
 dist/
+node_modules/
+tools/chars/out/

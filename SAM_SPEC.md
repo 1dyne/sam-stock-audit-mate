@@ -347,6 +347,8 @@ X-Sam-Device: sam-07
 | ⑦ 블루투스 GATT (0.2.0) | 🟡 광고 시작 확인 (`dalgrak-scale-4A0C`, 11/23) · 폰 연결 **미검증** | docs/protocol.md |
 | ⑧ 블루투스 키보드 (0.2.0) | 🟡 코드 완료 · 컴파일 OK · **실기 미검증 (아이폰 페어링 포함)** | |
 | 빌드 크기 | 1,378,231B / 앱 파티션 3,342,336B (41%) | `default_8MB` |
+| 웹 앱 0.3.0 (PWA) | 🟡 코드 완료 · 끝-끝 테스트 통과(연습용 저울·아이폰 키보드 입력 흉내) · **실기 사만다 연결 미검증** | §12 |
+| 웹 서버 0.3.0 (선택) | 🟡 계약 v1 수신·명령 왕복 로컬 테스트 통과 · **실제 Cloudflare 배포 미검증** | §12 |
 | 양산 스크립트 | 🟡 작성 · **실기 미검증** | provision.py |
 
 검증 환경: 펌웨어 세션은 클라우드 컨테이너라 보드에 접근 불가. 컴파일(esp32 core 3.3.13)과 측정 코어 호스트 시뮬레이션(`firmware/test/`, 27항목 통과)까지만 했음. 업로드·시리얼 로그는 다인 PC에서.
@@ -368,8 +370,11 @@ X-Sam-Device: sam-07
 | 11-22 | 펌웨어 | 0.2.0: 처음엔 NimBLE-Arduino 2.3.9를 추가했으나 11-23에 **보드 패키지 내장 `BLE` 라이브러리로 교체** → 따로 설치할 라이브러리 0개 (다인 환경: M5AtomS3 보드 + HX711 라이브러리 그대로 사용 가능) |
 | 11-22 | 펌웨어 | 모드 3개(gatt 기본/kbd/wifi), 모드마다 다른 BLE 주소 (폰의 서비스 캐시 섞임 방지) |
 | 11-22 | 펌웨어 | ⚠ 요청서와 저장소 차이: 요청서는 docs/protocol.md·WebSocket·`dalgrak-scale-` AP 이름·0.2.0이 이미 있다고 했지만 저장소엔 0.1.0(HTTP POST, AP `sam-NN`)만 있었음. BLE 이름은 요청대로 `dalgrak-scale-NN`, AP·서버 ID는 `sam-NN` 유지, 서버 경로는 POST 유지. 다른 세션의 0.2.0이 있으면 합칠 때 확인 필요 |
+| 11-23 | 웹 | §4 계약 v1 **그대로 확정**: `POST {server}/api/v1/readings`, `Authorization: Bearer <접속 코드>`(서버마다 사용자가 정하는 코드 = 서버 키), 응답 `{ok, cmds}`. 수량 판단에 쓰는 값 = `state=="measuring" && stable && calibrated && adc_ok`. 서버 → 앱은 WebSocket(`/ws/app?device=sam-07`), 5초 넘게 수신 없으면 앱이 "연결 중"으로 표시. 명령 v1 `tare`·`identify` 지원 |
+| 11-23 | 웹 | §5 확정: 수량 계산은 PWA. 단 연결 방식은 블루투스 직접이 기본(스티커 번호 입력은 Wi-Fi 모드에서만). 사람 확인 조건 중 `|정확값 − 반올림값| > 0.25` → 기록 상태 "확인 필요", 개당 무게 < 1.5g → 저장은 하되 "샘플을 늘려 주세요" 경고, 5000g 초과 → 저장 막음. `tare_done`(또는 `tare_count` 변화)을 받으면 진행 중인 무게 세기를 통 무게 단계부터 다시 |
+| 11-23 | 웹 | 키보드 모드 입력은 버튼을 누를 때만(펌웨어 그대로). 앱은 숫자·`.`·`-` + Enter로 끝난 값만 받음. 화면 속 사만다 눈 색 = LED: 연결 전 청록, 안정 초록, 흔들림 노랑, 키보드 보라, 오류 빨강, 끊김 꺼짐 |
 
-**웹 세션에 요청**
+**웹 세션에 요청** (11-23 답: 1·2·3 모두 위 표에 기록)
 1. §4 계약 확인: 엔드포인트 경로·인증 방식·필드명 OK인지, 서버 URL 확정되면 기록
 2. §5 규칙 확정 (특히 "수량 계산은 PWA")
 3. 서버 → PWA 실시간 방식, "오프라인" 판정 시간 기록
@@ -412,3 +417,20 @@ X-Sam-Device: sam-07
 - 교정용 분동 **1kg 1개** (스테인리스, M1 또는 F2 등급 이상) — 13대 모두 같은 분동으로 보정
 - 2.4GHz 지원 여행용 공유기 1대 (§6 조건)
 - 시연·검증용 100원 동전 50개 정도
+
+---
+
+## 12. PWA 구조·서버 (웹 세션)
+
+최종 갱신: 2026-11-23 (웹 세션, 앱 0.3.0)
+
+- **앱**: `web/` 정적 PWA, 빌드 없음. 공용 주소(GitHub Pages)에서 모두가 같은 앱을 열고, 기록은 각자 휴대폰(IndexedDB)에만 저장. 오프라인 동작(서비스워커).
+- **사만다 연결** (`web/js/scale.js`, 형식은 `docs/protocol.md`)
+  - 블루투스 직접: `requestDevice({filters:[{namePrefix:"dalgrak-scale-"},{services:[SERVICE]}]})` → reading·event 구독, info 읽기, command 쓰기(`tare`). 끊기면 5번까지 자동 재연결
+  - 키보드: 문서 전체 keydown에서 숫자·`.`·`-`를 모았다가 Enter에 값으로 확정(입력칸에 글자를 쓰는 중이면 무시)
+  - 서버 경유: `/ws/app?code=&device=sam-NN` 구독, `{cmd:"tare"}` 보내면 다음 POST 응답에 실림
+  - 연습용: 실제 저울처럼 0.9초 흔들리다 멈추는 가짜 값(0.1g 단위)
+- **무게로 세기 흐름**: 통 무게(저장한 통 ±2% 자동 인식) → 샘플 N개(기본 10, 저장된 개당 무게 재사용 가능) → 전부 → 저장. 오차 `±ceil(N_count×0.1/(n×u) + 0.1/u)` (0.1g = 저울 표시 단위 가정, **실기 노이즈로 확인 필요**)
+- **서버(선택)**: `server/src/index.js`. 각자 Cloudflare에 배포. D1 한 표(`rows`: tbl, id, data JSON, updated_at, srv_ts)에 앱 행을 그대로 저장, 같은 행은 `updated_at`이 큰 것이 이김. ScaleHub Durable Object 1개가 기기별 마지막 값·명령 큐를 메모리에 들고 앱 WebSocket으로 전달(D1 쓰기 없음)
+- **API**: `GET /api/health` · `POST /api/setup {code}`(처음 한 번) · `GET|POST /api/sync`(x-sam-code) · `POST /api/v1/readings`(Bearer) · `GET /ws/app` · `GET /api/scales`. 모든 `/api`는 CORS 허용(공용 주소의 앱에서 각자 서버를 부르기 때문)
+- **테스트**: `npm test`(규칙·표 파일 단위 테스트), `npm run e2e`(앱 끝-끝), `npm run e2e:server`(서버 + 가짜 사만다 POST)
