@@ -19,6 +19,7 @@ ATOM_X = 0; ATOM_Y = D/2 - WALL - 0.5 - ATOM/2;   // 앞벽과 0.5mm
 ATOM_Z0 = FLOOR + 6.8;          // AtomS3 밑면
 ATOM_TOP = FLOOR + 16.4;        // AtomS3 윗면
 USB_BOT = FLOOR + 13.1;         // USB-C 밑면
+USB_C = USB_BOT + 1.6;          // USB-C 중심 (리셉터클 높이 3.2 가정)
 HX_L = 33.7; HX_W = 21;         // HX711 (폭 미측정, 가정)
 HX_X0 = ATOM_X + ATOM/2 - 8.2;  // AtomS3가 헤더에 8.2mm 걸침
 BTN_W = 12.5; BTN_D = 11;       // 버튼 판 (AtomS3 윗면 중앙 가정)
@@ -56,7 +57,7 @@ module body() {
       // 로드셀 고정 받침 (M5, 오른쪽)
       translate([LC_L/2 - SPACER_L, LC_Y - 7, 0]) cube([SPACER_L, 14, LC_Z0]);
       // AtomS3 받침대 (HX711 밖으로 튀어나온 15.8mm 밑)
-      translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, 0]) cube([HX_X0 - (ATOM_X - ATOM/2), ATOM, ATOM_Z0]);
+      translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, 0]) cube([HX_X0 - 0.3 - (ATOM_X - ATOM/2), ATOM, ATOM_Z0]);
       // AtomS3 뒤쪽 멈춤턱 (USB 꽂을 때 미는 힘) — 왼쪽 옆면 RESET 자리는 비움
       translate([ATOM_X - ATOM/2 + 4, ATOM_Y - ATOM/2 - 2 - TOL, 0]) cube([8, 2, ATOM_TOP - 3]);
       // 선 보관 기둥
@@ -66,7 +67,8 @@ module body() {
       translate([W/2 - WALL - 4, PIN_R[1] - 3, 0]) cube([4, 6, WALL_TOP]);
     }
     // USB-C 홈 (위가 열린 U자, 띠가 덮음)
-    translate([ATOM_X - 6.5, D/2 - WALL - 1, USB_BOT - 0.2]) cube([13, WALL + 2, 20]);
+    // 보조배터리 플러그 몸통(약 12.5x6.5)이 지나가도록 13.6x7.5 이상
+    translate([ATOM_X - 6.8, D/2 - WALL - 1, USB_C - 3.75]) cube([13.6, WALL + 2, 20]);
     // M5 접시머리 구멍 (밑에서)
     for (x = HOLE_X) translate([x, LC_Y, -0.01]) {
       cylinder(d = 5.5, h = 20);
@@ -90,7 +92,8 @@ module brow() {
       translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(CAP_W + 2*TOL, CAP_D + 2*TOL, 2 + TOL);
     }
     // 뒤쪽 가장자리 보강 립
-    translate([-W/2 + WALL + TOL, D/2 - BROW_D, -2]) cube([W - 2*WALL - 2*TOL, 1.6, 2]);
+    // (왼쪽 보스·오른쪽 블록 피함)
+    translate([-32, D/2 - BROW_D, -2]) cube([68, 1.6, 2]);
     // 고정 핀
     for (p = concat(PINS_L, [PIN_R])) translate([p[0], p[1], -4]) cylinder(d = 2.4, h = 4);
   }
