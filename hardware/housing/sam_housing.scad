@@ -1,0 +1,141 @@
+// 셈(sam) v1 하우징 — 실측 기반 가안 (2026-11-24)
+// 좌표: x=가로, y=앞(+)/뒤(-), z=위. 책상 = z0. 단위 mm.
+// part = "body" | "brow" | "pan" | "cap" | "assembly"
+part = "assembly";
+$fn = 48;
+
+// ---------- 치수 ----------
+W = 88; D = 72; R = 6;          // 외곽
+WALL = 2; FLOOR = 2;
+WALL_TOP = 21;                  // 몸통 벽 윗면
+BROW_D = 28; BROW_T = 3;        // 앞쪽 띠 (y: D/2-BROW_D .. D/2)
+GAP_PAN = 2; PAN_T = 3;         // 저울판: 벽 위 2mm 띄움
+PAN_Y1 = D/2 - BROW_D - 1.5;    // 저울판 앞 가장자리 (띠와 1.5mm 틈)
+TOL = 0.3;
+
+// AtomS3 + HX711 덩어리 (실측: 테이프 포함, 책상 기준 → +FLOOR)
+ATOM = 24; ATOM_H = 9.5;
+ATOM_X = 0; ATOM_Y = D/2 - WALL - 0.5 - ATOM/2;   // 앞벽과 0.5mm
+ATOM_Z0 = FLOOR + 6.8;          // AtomS3 밑면
+ATOM_TOP = FLOOR + 16.4;        // AtomS3 윗면
+USB_BOT = FLOOR + 13.1;         // USB-C 밑면
+HX_L = 33.7; HX_W = 21;         // HX711 (폭 미측정, 가정)
+HX_X0 = ATOM_X + ATOM/2 - 8.2;  // AtomS3가 헤더에 8.2mm 걸침
+BTN_W = 12.5; BTN_D = 11;       // 버튼 판 (AtomS3 윗면 중앙 가정)
+
+// 로드셀 (도면: 80, 구멍 끝에서 5·20mm, M5=선 쪽=오른쪽=바닥 고정, M4=저울판)
+LC_L = 80.6; LC_S = 12.7;
+LC_Y = -D/2 + WALL + 1.5 + LC_S/2;
+LC_Z0 = FLOOR + 4;              // 고정 받침 4mm
+SPACER_L = 24;                  // 받침은 끝에서 24mm까지만 (휘는 부분 안 닿게)
+PAN_Z0 = WALL_TOP + GAP_PAN;    // 저울판 밑면 23
+FREE_SP_H = PAN_Z0 - (LC_Z0 + LC_S);   // 저울판 받침 높이 4.3
+HOLE_X = [LC_L/2 - 5, LC_L/2 - 20];
+
+// 얼굴 캡
+CAP_W = 14; CAP_D = 13; CAP_TOP = WALL_TOP + BROW_T + 1.5;   // 띠 위 1.5mm
+FLANGE_T = 0.8; NUB_H = 1.0;
+EYE_DX = 3; EYE_D = 3.15;
+
+module rrect(w, d, r) { offset(r) square([w - 2*r, d - 2*r], center = true); }
+
+// ---------- 몸통 ----------
+module body() {
+  difference() {
+    union() {
+      // 바닥 + 벽
+      linear_extrude(FLOOR) rrect(W, D, R);
+      linear_extrude(WALL_TOP) difference() { rrect(W, D, R); rrect(W - 2*WALL, D - 2*WALL, R - WALL); }
+      // 로드셀 고정 받침 (M5, 오른쪽)
+      translate([LC_L/2 - SPACER_L, LC_Y - 7, 0]) cube([SPACER_L, 14, LC_Z0]);
+      // AtomS3 받침대 (HX711 밖으로 튀어나온 15.8mm 밑)
+      translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, 0]) cube([HX_X0 - (ATOM_X - ATOM/2), ATOM, ATOM_Z0]);
+      // AtomS3 뒤쪽 멈춤턱 (USB 꽂을 때 미는 힘) — 왼쪽 옆면 RESET 자리는 비움
+      translate([ATOM_X - ATOM/2 + 4, ATOM_Y - ATOM/2 - 2 - TOL, 0]) cube([8, 2, ATOM_TOP - 3]);
+      // 선 보관 기둥
+      for (x = [-8, 24]) translate([x, -6, 0]) cylinder(d = 3.5, h = FLOOR + 7);
+      // 띠 고정 보스 (왼쪽 2, 오른쪽 벽쪽 1)
+      for (p = [[-36, 30], [-36, 12]]) translate([p[0], p[1], 0]) cylinder(d = 6, h = WALL_TOP);
+      translate([W/2 - WALL - 4, 7, 0]) cube([4, 6, WALL_TOP]);
+    }
+    // USB-C 홈 (위가 열린 U자, 띠가 덮음)
+    translate([ATOM_X - 6.5, D/2 - WALL - 1, USB_BOT - 0.2]) cube([13, WALL + 2, 20]);
+    // M5 접시머리 구멍 (밑에서)
+    for (x = HOLE_X) translate([x, LC_Y, -0.01]) {
+      cylinder(d = 5.5, h = 20);
+      cylinder(d1 = 10.4, d2 = 5.5, h = 2.5);
+    }
+    // 띠 핀 구멍
+    for (p = [[-36, 30], [-36, 12], [W/2 - WALL - 2, 10]]) translate([p[0], p[1], WALL_TOP - 5]) cylinder(d = 2.7, h = 6);
+  }
+}
+
+// ---------- 앞쪽 띠 ----------
+module brow() {
+  yc = D/2 - BROW_D/2;
+  translate([0, 0, WALL_TOP]) {
+    difference() {
+      intersection() {
+        linear_extrude(BROW_T) rrect(W, D, R);
+        translate([-W/2, D/2 - BROW_D, 0]) cube([W, BROW_D, BROW_T]);
+      }
+      // 얼굴 캡 구멍
+      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(CAP_W + 2*TOL, CAP_D + 2*TOL, 2 + TOL);
+    }
+    // 뒤쪽 가장자리 보강 립
+    translate([-W/2 + WALL + TOL, D/2 - BROW_D, -2]) cube([W - 2*WALL - 2*TOL, 1.6, 2]);
+    // 고정 핀
+    for (p = [[-36, 30], [-36, 12], [W/2 - WALL - 2, 10]]) translate([p[0], p[1], -4]) cylinder(d = 2.4, h = 4);
+  }
+}
+
+// ---------- 저울판 ----------
+module pan() {
+  difference() {
+    union() {
+      translate([0, 0, PAN_Z0]) intersection() {
+        linear_extrude(PAN_T) rrect(W, D, R);
+        translate([-W/2, -D/2, 0]) cube([W, PAN_Y1 + D/2, PAN_T]);
+      }
+      // 저울판 받침 (M4, 왼쪽 끝)
+      translate([-LC_L/2, LC_Y - 7, LC_Z0 + LC_S]) cube([SPACER_L, 14, FREE_SP_H + 0.01]);
+      // 휨 방지 리브 (로드셀 위는 피함)
+      for (y = [-12, 2]) translate([-W/2 + WALL + 1.5, y - 1, PAN_Z0 - 2.5]) cube([W - 2*WALL - 3, 2, 2.51]);
+    }
+    // M4 접시머리 구멍 (위에서)
+    for (x = HOLE_X) translate([-x, LC_Y, 0]) {
+      cylinder(d = 4.5, h = 40);
+      translate([0, 0, PAN_Z0 + PAN_T - 2.2 + 0.01]) cylinder(d1 = 4.5, d2 = 8.6, h = 2.2);
+    }
+  }
+}
+
+// ---------- 얼굴 캡 ----------
+module cap() {
+  difference() {
+    union() {
+      // 걸림턱
+      translate([ATOM_X, ATOM_Y, ATOM_TOP + NUB_H]) linear_extrude(FLANGE_T) rrect(CAP_W + 4, CAP_D + 4, 3);
+      // 캡 몸체
+      translate([ATOM_X, ATOM_Y, ATOM_TOP + NUB_H + FLANGE_T]) linear_extrude(CAP_TOP - (ATOM_TOP + NUB_H + FLANGE_T)) rrect(CAP_W, CAP_D, 2);
+      // 돌기: 버튼 판 안쪽, 경첩 반대쪽(뒤)
+      translate([ATOM_X - 4, ATOM_Y - BTN_D/2 + 0.5, ATOM_TOP]) cube([8, 2.5, NUB_H + 0.01]);
+    }
+    // 광섬유 구멍
+    for (s = [-1, 1]) translate([ATOM_X + s*EYE_DX, ATOM_Y, 0]) cylinder(d = EYE_D, h = 40);
+  }
+}
+
+// ---------- 참고용 부품 ----------
+module refs() {
+  color("silver") translate([-LC_L/2, LC_Y - LC_S/2, LC_Z0]) cube([LC_L, LC_S, LC_S]);
+  color("white") translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, ATOM_Z0]) cube([ATOM, ATOM, ATOM_H]);
+  color("green") translate([HX_X0, ATOM_Y - HX_W/2, FLOOR + 1]) cube([HX_L, HX_W, 1.6]);
+  color("cyan") for (s = [-1, 1]) translate([ATOM_X + s*EYE_DX, ATOM_Y, ATOM_TOP + 0.6]) cylinder(d = 3, h = CAP_TOP - ATOM_TOP - 0.6);
+}
+
+if (part == "body") body();
+else if (part == "brow") brow();
+else if (part == "pan") pan();
+else if (part == "cap") cap();
+else { color("#E4E1D9") body(); color("#DDD8CE") brow(); color("#D2CCBF") pan(); color("#F5F2EC") cap(); refs(); }
