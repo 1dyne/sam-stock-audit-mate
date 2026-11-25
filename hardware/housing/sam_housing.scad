@@ -88,7 +88,7 @@ module brow() {
         translate([-W/2, D/2 - BROW_D, 0]) cube([W, BROW_D, BROW_T]);
       }
       // 얼굴 캡 구멍
-      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(22, 22, 3);   // 캡 없이 AtomS3 버튼을 손가락으로 직접 누름
+      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(CAP_W + 2*TOL, CAP_D + 2*TOL, 2 + TOL);   // 14.6x13.6 창 (시험 출력에서 확정, USB 단자 가림)
     }
     // 뒤쪽 가장자리 보강 립
     // (왼쪽 보스·오른쪽 블록 피함)
