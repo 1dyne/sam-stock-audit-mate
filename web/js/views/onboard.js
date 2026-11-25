@@ -1,17 +1,19 @@
-// 처음 시작: 무엇을 세나요 → 이렇게 세면 정확해요(장치 제안) → 자주 쓸 기능 → 어디를 세나요 → 사만다 연결
-import { S, db, screen, say, sayBig, btn, btn2, esc, toast, sheet, pickFile, saveSettings, setPlace, saveRow, load, av } from '../core.js';
-import { KINDS, METHODS, FEATURES, defaultFeatures, methodsForKinds } from '../model.js';
+// 처음 시작: 인사 → 세는 곳 이름 → 사만다 연결(건너뛸 수 있음)
+import { S, db, screen, say, sayBig, btn, esc, toast, pickFile, saveSettings, setPlace, saveRow, load } from '../core.js';
+import { KINDS, defaultFeatures } from '../model.js';
 import { connectBody, connectActions, connectMount } from './settings.js';
-import { go, refresh } from '../app.js';
+import { go } from '../app.js';
 
 const REPO = 'https://github.com/1dyne/sam-stock-audit-mate';
-const ob = () => (S.flow.ob ||= { kinds: ['small', 'loose', 'big'], features: null, name: '', catalog: 'shared', add: 'later' });
-const TOTAL = 5;
+// 처음에는 꼭 필요한 것만 묻는다: 세는 곳 이름 → 사만다 연결(건너뛸 수 있음).
+// 무엇을 어떻게 셀지는 재고를 넣을 때 종류만 고르면 셈이 정하고, 자주 쓰는 기능은 기본값으로 켜 두고 설정에서 바꾼다.
+const ALL_KINDS = Object.keys(KINDS);
+const ob = () => (S.flow.ob ||= { kinds: ALL_KINDS, features: null, name: '', catalog: 'shared' });
+const TOTAL = 2;
 
 export function start({ step }) {
   const n = Number(step) || 0;
   const o = ob();
-  const needsSam = () => methodsForKinds(o.kinds).includes('weight');
   const next = (k) => go(`#/start/${k}`);
 
   if (n === 0) {
@@ -30,69 +32,32 @@ export function start({ step }) {
   }
 
   if (n === 1) {
-    const opts = Object.entries(KINDS).map(([k, d]) => `<button type="button" class="opt${o.kinds.includes(k) ? ' on' : ''}" data-act="kind" data-arg="${k}" aria-pressed="${o.kinds.includes(k)}"><span><b>${d.label}</b><small>${d.desc}</small></span><span class="ck">${o.kinds.includes(k) ? '✓' : ''}</span></button>`).join('');
     return {
-      html: screen({ back: '#/start/0', step: [1, TOTAL], right: `1 / ${TOTAL}`, body: say('무엇을 세나요?', '해당하는 것을 모두 골라 주세요') + opts,
-        actions: btn('다음', 'next', { primary: true, disabled: !o.kinds.length }) }),
-      on: {
-        kind(k) { o.kinds = o.kinds.includes(k) ? o.kinds.filter((x) => x !== k) : [...o.kinds, k]; o.features = null; refresh(); },
-        next: () => next(2),
-      },
-    };
-  }
-
-  if (n === 2) {
-    const rows = o.kinds.map((k) => { const m = METHODS[KINDS[k].method]; return `<div class="row"><span><b>${KINDS[k].label}</b><small>${m.how}</small></span><span class="dev">${m.device}</span></div>`; }).join('');
-    const sam = needsSam() ? `<div class="card media">${av('sam', 'off', 44)}<span><b>작은 부품은 사만다가 필요해요</b><small class="hint">재고 측정기예요. 없어도 다른 방법으로 셀 수 있어요.</small></span></div>` : '';
-    return {
-      html: screen({ back: '#/start/1', step: [2, TOTAL], right: `2 / ${TOTAL}`, body: say('이렇게 세면 정확해요') + `<section class="card list">${rows}</section>` + sam,
-        actions: needsSam() ? btn2(btn('만드는 법', 'how', { sm: true }), btn('다음', 'next', { primary: true, sm: true })) : btn('다음', 'next', { primary: true }) }),
-      on: { how: () => window.open(REPO + '#사만다-만들기', '_blank', 'noopener'), next: () => next(3) },
-    };
-  }
-
-  if (n === 3) {
-    o.features ||= defaultFeatures(o.kinds);
-    const rows = Object.entries(FEATURES).map(([k, d]) => `<button type="button" class="row tog" data-act="feat" data-arg="${k}" aria-pressed="${!!o.features[k]}"><span><b>${d.label}</b><small>${d.desc}</small></span><span class="sw${o.features[k] ? ' on' : ''}" aria-hidden="true"></span></button>`).join('');
-    return {
-      html: screen({ back: '#/start/2', step: [3, TOTAL], right: `3 / ${TOTAL}`, body: say('자주 쓸 기능만 켜 주세요', '나머지는 숨겨 둘게요. 설정에서 바꿀 수 있어요') + `<section class="card list">${rows}</section>`,
-        actions: btn('다음', 'next', { primary: true }) }),
-      on: { feat(k) { o.features[k] = !o.features[k]; refresh(); }, next: () => next(4) },
-    };
-  }
-
-  if (n === 4) {
-    const shared = S.catalogs.filter((c) => c.shared);
-    const radio = (v, title, small) => `<button type="button" class="opt${o.catalog === v ? ' on' : ''}" data-act="cat" data-arg="${v}" aria-pressed="${o.catalog === v}"><span><b>${title}</b><small>${small}</small></span><span class="ck">${o.catalog === v ? '✓' : ''}</span></button>`;
-    const addc = (v, l) => `<button type="button" class="fchip${o.add === v ? ' on' : ''}" data-act="add" data-arg="${v}" aria-pressed="${o.add === v}">${l}</button>`;
-    return {
-      html: screen({ back: '#/start/3', step: [4, TOTAL], right: `4 / ${TOTAL}`,
-        body: say('어디를 세나요?') + `<label class="card field-line"><small class="hint">세는 곳 이름</small><input id="pname" value="${esc(o.name)}" placeholder="예: 작업실 부품장" autocomplete="off"></label>
-          <div class="sec-h">품목 목록</div>
-          ${radio('shared', '공통 목록 쓰기', shared.length ? '다른 세는 곳과 같은 품목, 수량만 따로' : '나중에 다른 세는 곳도 이 품목을 같이 써요')}
-          ${radio('own', '이곳만 따로', '이 세는 곳에만 있는 품목')}
-          <div class="sec-h">품목 넣기</div>
-          <div class="chips">${addc('file', '엑셀·CSV 불러오기')}${addc('one', '하나씩 입력')}${addc('later', '세면서 넣기')}</div>`,
+      html: screen({ back: '#/start/0', step: [1, TOTAL], right: `1 / ${TOTAL}`,
+        body: say('어디에 있는 재고를 세나요?', '이름만 붙여 주세요. 나중에 바꾸거나 더 만들 수 있어요')
+          + `<label class="card field-line"><small class="hint">세는 곳 이름</small><input id="pname" value="${esc(o.name)}" placeholder="예: 작업실 부품장" autocomplete="off" enterkeyhint="next"></label>
+          <p class="hint">비워 두면 "내 재고"로 할게요.</p>`,
         actions: btn('다음', 'next', { primary: true }) }),
       on: {
-        cat(v) { o.name = document.getElementById('pname').value; o.catalog = v; refresh(); },
-        add(v) { o.name = document.getElementById('pname').value; o.add = v; refresh(); },
         async next() {
           o.name = document.getElementById('pname').value.trim() || '내 재고';
           await finishSetup(o);
-          if (needsSam()) next(5); else done(o);
+          next(2);
         },
       },
+      mount(root) { root.querySelector('#pname').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); root.querySelector('[data-act=next]').click(); } }); },
     };
   }
 
-  // 5: 사만다 연결
+  // 2: 사만다 연결
   const c = connectBody();
+  const live = !!S.scale?.live;
   let off;
   return {
-    html: screen({ back: '#/start/4', step: [5, TOTAL], right: `5 / ${TOTAL}`, cls: 'drop-in', body: c.text + c.body,
-      actions: (S.scale?.live ? btn('다 됐어요', 'finish', { primary: true }) : c.actions) + (S.scale?.live ? '' : btn('사만다 없이 시작', 'finish', { sm: true })) }),
-    on: { ...connectActions, finish: () => done(o) },
+    html: screen({ back: '#/start/1', step: [2, TOTAL], right: `2 / ${TOTAL}`, cls: 'drop-in',
+      body: c.text + c.body + (live ? '' : `<p class="hint">사만다는 작은 부품을 무게로 세는 재고 측정기예요. 없어도 사진·박스·직접 세기는 쓸 수 있어요. <a href="${REPO}#사만다-만들기" target="_blank" rel="noopener">만드는 법</a></p>`),
+      actions: live ? btn('다 됐어요', 'finish', { primary: true }) : c.actions + btn('사만다 없이 시작', 'finish', { sm: true }) }),
+    on: { ...connectActions, finish: () => done() },
     mount() { off = connectMount(); },
     unmount() { off && off(); },
   };
@@ -113,12 +78,8 @@ async function finishSetup(o) {
   S.flow.obPlace = p.id;
 }
 
-async function done(o) {
+async function done() {
   await saveSettings({ onboarded: true });
-  const add = o.add;
   S.flow.ob = null;
-  if (add === 'file') go('#/items?import=1');
-  else if (add === 'one') go('#/item/new');
-  else go('#/');
+  go('#/', { replace: true });
 }
-void sheet;

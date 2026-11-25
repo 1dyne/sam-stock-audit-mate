@@ -2,14 +2,14 @@
 import { S, db, screen, say, btn, btn2, esc, fmt, toast, itemById, photoProfile, saveRecord, saveRow, recordsOfBatch, F, chip, av } from '../core.js';
 import { recordStatus, previousRecord, photoAccuracy, stackedBlobs, countFromBoxes, METHODS } from '../model.js';
 import { BuiltinEngine, loadPhoto } from '../photo-engine.js';
-import { go, refresh } from '../app.js';
+import { go, back, refresh } from '../app.js';
 
 let engine;
 
 // ---------- 사진 ----------
 export function photo({ id }) {
   const it = itemById(id);
-  if (!it) return { html: screen({ title: '품목 없음', back: '#/count', body: say('품목을 찾지 못했어요') }) };
+  if (!it) return { html: screen({ title: '품목 없음', back: '#/', body: say('품목을 찾지 못했어요') }) };
   const prof = photoProfile(id);
   const f = (S.flow.p && S.flow.p.itemId === id) ? S.flow.p : (S.flow.p = { itemId: id, stage: 'shoot', marks: [], ai: null, added: 0, removed: 0, exemplar: null, tool: 'add' });
   const acc = prof && photoAccuracy(prof.runs);
@@ -19,7 +19,7 @@ export function photo({ id }) {
       + `<div class="cam-guide"><div class="frame"></div><ul><li>위에서 똑바로</li><li>밝은 곳, 그림자 없이</li><li>바탕과 색이 다르게</li></ul></div>`
       + (prof ? `<div class="card">${acc != null ? `이 품목 사진 정확도 <b>${Math.round(acc * 100)}%</b> · ` : ''}기억한 설정으로 바로 셀게요</div>` : '<div class="card hint">처음이라 찍은 뒤 물건 하나를 손가락으로 둘러 알려 주세요.</div>');
     return {
-      html: screen({ title: esc(it.name), back: '#/count', right: '사진', body, actions: `<label class="shutter" aria-label="사진 찍기"><input type="file" accept="image/*" capture="environment" id="cam" hidden></label><p class="hint center">앨범에서 고르려면 눌러서 선택하세요</p>` }),
+      html: screen({ title: esc(it.name), back: '#/', right: '사진', body, actions: `<label class="shutter" aria-label="사진 찍기"><input type="file" accept="image/*" capture="environment" id="cam" hidden></label><p class="hint center">앨범에서 고르려면 눌러서 선택하세요</p>` }),
       mount(root) {
         root.querySelector('#cam').addEventListener('change', async (e) => {
           const file = e.target.files[0]; if (!file) return;
@@ -94,7 +94,7 @@ export function photo({ id }) {
         const rec = await saveRecord({ item_id: id, qty: final, method: 'photo', err: null, quality: stacked2 >= 3 ? 'recount' : null,
           detail: { photo_id: ph.id, ai: f.ai, added: f.added, removed: f.removed, engine: 'OpenTally builtin' } });
         S.flow.p = null;
-        go(`#/saved/${rec.id}`);
+        go(`#/saved/${rec.id}`, { replace: true });
       },
     },
   };
@@ -126,7 +126,7 @@ function draw(cv, f, drag) {
 // ---------- 박스 ----------
 export function box({ id }) {
   const it = itemById(id);
-  if (!it) return { html: screen({ title: '품목 없음', back: '#/count', body: say('품목을 찾지 못했어요') }) };
+  if (!it) return { html: screen({ title: '품목 없음', back: '#/', body: say('품목을 찾지 못했어요') }) };
   const b = (S.flow.b && S.flow.b.itemId === id) ? S.flow.b : (S.flow.b = { itemId: id, front: 0, depth: 1, layers: 1, loose: 0, pack: Number(it.pack_qty) || 0 });
   const unit = esc(it.unit || '개');
   const ctl = (k, label, small) => `<div class="step"><span><b>${label}</b><small>${small}</small></span><span class="ctl"><button type="button" data-act="d" data-arg="${k}:-1" aria-label="${label} 줄이기">−</button><b>${b[k]}</b><button type="button" data-act="d" data-arg="${k}:1" aria-label="${label} 늘리기">+</button></span></div>`;
@@ -135,13 +135,13 @@ export function box({ id }) {
     + ctl('pack', '박스당', unit) + ctl('front', '앞줄', '정면에서 보이는 박스') + ctl('depth', '안쪽 줄', '앞에서 뒤로') + ctl('layers', '층', '위로 쌓은 수') + ctl('loose', '뜯은 박스 낱개', unit)
     + `<div class="count"><div class="big mid2">${fmt(r.total)}<span class="u">${unit}</span></div><div class="pm">${b.front} × ${b.depth} × ${b.layers} = ${r.boxes}박스 × ${b.pack || 0} + ${b.loose}</div></div>`;
   return {
-    html: screen({ title: esc(it.name), back: '#/count', right: '박스', body, actions: btn(`${fmt(r.total)}${unit} 저장`, 'save', { primary: true, disabled: !b.pack }) }),
+    html: screen({ title: esc(it.name), back: '#/', right: '박스', body, actions: btn(`${fmt(r.total)}${unit} 저장`, 'save', { primary: true, disabled: !b.pack }) }),
     on: {
       d(arg) { const [k, d] = arg.split(':'); const min = k === 'depth' || k === 'layers' ? 1 : 0; b[k] = Math.max(min, b[k] + Number(d)); refresh(); },
       async save() {
         if (b.pack && Number(it.pack_qty) !== b.pack) await saveRow('items', { ...it, pack_qty: b.pack });
         const rec = await saveRecord({ item_id: id, qty: r.total, method: 'box', err: null, detail: { front: b.front, depth: b.depth, layers: b.layers, pack: b.pack, loose: b.loose } });
-        S.flow.b = null; go(`#/saved/${rec.id}`);
+        S.flow.b = null; go(`#/saved/${rec.id}`, { replace: true });
       },
     },
   };
@@ -150,7 +150,7 @@ export function box({ id }) {
 // ---------- 직접 ----------
 export function manual({ id }) {
   const it = itemById(id);
-  if (!it) return { html: screen({ title: '품목 없음', back: '#/count', body: say('품목을 찾지 못했어요') }) };
+  if (!it) return { html: screen({ title: '품목 없음', back: '#/', body: say('품목을 찾지 못했어요') }) };
   const m = (S.flow.m && S.flow.m.itemId === id) ? S.flow.m : (S.flow.m = { itemId: id, v: '' });
   const prev = previousRecord(S.records, { item_id: id, place_id: S.place_id, batch_id: '__now', counted_at: Date.now() + 1 });
   const unit = esc(it.unit || '개');
@@ -161,7 +161,7 @@ export function manual({ id }) {
     + `<div class="b2 even">${btn('− 1', 'k', { arg: 'm1' })}${btn('+ 1', 'k', { arg: 'p1' })}</div>`
     + `<div class="pad">${keys.map((k) => `<button type="button" data-act="k" data-arg="${k}" class="${k.length > 1 ? 'word' : ''}">${k === 'del' ? '지움' : k === 'none' ? '없음' : k}</button>`).join('')}</div>`;
   return {
-    html: screen({ title: esc(it.name), back: '#/count', right: '직접', body, actions: btn(`${fmt(v)}${unit} 저장`, 'save', { primary: true }) }),
+    html: screen({ title: esc(it.name), back: '#/', right: '직접', body, actions: btn(`${fmt(v)}${unit} 저장`, 'save', { primary: true }) }),
     on: {
       k(k) {
         if (k === 'p1') m.v = String(v + 1);
@@ -172,7 +172,7 @@ export function manual({ id }) {
         if (m.v.length > 7) m.v = m.v.slice(0, 7);
         refresh();
       },
-      async save() { const rec = await saveRecord({ item_id: id, qty: v, method: 'manual', err: null, detail: {} }); S.flow.m = null; go(`#/saved/${rec.id}`); },
+      async save() { const rec = await saveRecord({ item_id: id, qty: v, method: 'manual', err: null, detail: {} }); S.flow.m = null; go(`#/saved/${rec.id}`, { replace: true }); },
     },
   };
 }
@@ -194,10 +194,10 @@ export function saved({ id }) {
   const left = recordsOfBatch(r.batch_id).length;
   void left;
   return {
-    html: screen({ title: '저장했어요', back: false, body: say(`${esc(it.name || r.item_name)} ${fmt(r.qty)}${unit}`, `${esc(b?.label || '')} 묶음에 넣었어요 · ${METHODS[r.method]?.label || ''}${r.err ? ` · ±${r.err}` : ''}`)
+    html: screen({ title: '저장했어요', back: false, cls: 'cheer', body: say(`${esc(it.name || r.item_name)} ${fmt(r.qty)}${unit}`, `${esc(b?.label || '')} 기록에 저장했어요 · ${METHODS[r.method]?.by || ''} 셈${r.err ? ` · ±${r.err}개` : ''}`)
       + (q ? `<div class="card">${chip(q.label, q.tone)} ${q.key === 'check' ? '반 개쯤 남거나 모자랐어요. 섞인 게 없는지 확인해 주세요.' : '사진으로는 정확하지 않았어요. 다시 세 주세요.'}</div>` : '')
       + (rows.length ? `<section class="card list">${rows.join('')}</section>` : ''),
-    actions: btn2(btn('고치기', 'edit', { sm: true }), btn('다음 품목', 'next', { primary: true, sm: true })) }),
-    on: { edit: () => go(`#/record/${r.id}`), next: () => go('#/count') },
+    actions: btn2(btn('고치기', 'edit', { sm: true }), btn('다른 재고 세기', 'next', { primary: true, sm: true })) }),
+    on: { edit: () => go(`#/record/${r.id}`), next: () => back('#/') },
   };
 }

@@ -11,18 +11,23 @@ export const KINDS = {
 };
 
 export const METHODS = {
-  weight: { label: '무게', device: '사만다 · 무게', how: '개당 무게로 나눠서 셈' },
-  photo: { label: '사진', device: '카메라 · 사진', how: '사진 속 물건을 셈' },
-  box: { label: '박스', device: '카메라 · 입수량', how: '박스 수 × 입수량' },
-  manual: { label: '직접', device: '직접', how: '눈으로 세고 숫자만 입력' },
+  weight: { label: '무게', device: '사만다 · 무게', how: '개당 무게로 나눠서 셈', by: '무게로', plan: '사만다에 몇 개만 먼저 올려 한 개 무게를 잰 뒤, 전부 올리면 개수가 나와요' },
+  photo: { label: '사진', device: '카메라 · 사진', how: '사진 속 물건을 셈', by: '사진으로', plan: '펼쳐 놓고 위에서 한 장 찍으면 셈이 세요' },
+  box: { label: '박스', device: '카메라 · 입수량', how: '박스 수 × 입수량', by: '박스로', plan: '박스 몇 개인지만 넣으면 박스당 개수를 곱해요' },
+  manual: { label: '직접', device: '직접', how: '눈으로 세고 숫자만 입력', by: '직접', plan: '눈으로 센 숫자만 넣어요' },
 };
+
+/** 세는 방법 → 그 방법을 고르게 되는 재고 종류(품목 화면에서 '어떤 재고인가요?'에 미리 표시) */
+export function kindOfMethod(m) {
+  return Object.keys(KINDS).find((k) => KINDS[k].method === m) || null;
+}
 
 export const FEATURES = {
   compare_last: { label: '지난번과 비교', desc: '지난번보다 얼마나 줄었는지' },
   min_qty: { label: '최소 수량 알림', desc: '이만큼 밑이면 "주문 필요"' },
   ledger: { label: '장부 수량과 비교', desc: '엑셀 장부를 불러와서 차이 보기' },
   daily_batch: { label: '날짜별로 묶기', desc: '센 날마다 기록을 한 묶음으로' },
-  fill: { label: '담기', desc: '정한 개수만큼 덜어 담기' },
+  fill: { label: '나눠 담기', desc: '정한 개수씩 봉투에 덜어 담기' },
 };
 
 /** A1에서 고른 재고 종류에 맞춘 기능 기본값 */

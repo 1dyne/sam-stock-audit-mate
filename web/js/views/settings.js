@@ -3,7 +3,7 @@ import { S, db, screen, say, btn, btn2, esc, toast, sheet, shareFile, pickFile, 
 import { FEATURES, VERSION } from '../model.js';
 import { BleScale, isIOS } from '../scale.js';
 import { connectScale, disconnectScale, onScale, eye } from '../scalectl.js';
-import { go, refresh } from '../app.js';
+import { go, back, refresh } from '../app.js';
 
 const sw = (on) => `<span class="sw${on ? ' on' : ''}" aria-hidden="true"></span>`;
 
@@ -157,8 +157,8 @@ export function places() {
   return {
     html: screen({ title: '세는 곳', back: '#/settings', body: `${say('어디를 셀까요?', '세는 곳마다 기록이 따로 모여요')}<section class="card list">${rows || '<p class="hint">아직 없어요</p>'}</section>`, actions: btn('새 세는 곳', 'add', { primary: true }) }),
     on: {
-      async use(id) { await setPlace(id); toast('바꿨어요'); go('#/'); },
-      async add() { const p = await newPlaceSheet(); if (p) { await setPlace(p.id); go('#/'); } },
+      async use(id) { await setPlace(id); toast('바꿨어요'); back('#/'); },
+      async add() { const p = await newPlaceSheet(); if (p) { await setPlace(p.id); back('#/'); } },
     },
   };
 }
