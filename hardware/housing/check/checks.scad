@@ -1,8 +1,8 @@
 include <lib.scad>
 // ---- 참고 부품 (실측) ----
 module atom()  translate([ATOM_X-ATOM/2, ATOM_Y-ATOM/2, ATOM_Z0]) cube([ATOM, ATOM, ATOM_H]);
-module hx()    translate([HX_X0, ATOM_Y-HX_W/2, FLOOR]) cube([HX_L, HX_W, 1 + 1.6]);   // 테이프 1 + 보드
-module header() translate([HX_X0, ATOM_Y-HX_W/2+2, FLOOR+2.6]) cube([ATOM_X+ATOM/2-HX_X0, HX_W-4, ATOM_Z0-FLOOR-2.6]);
+module hx()    mirror([1,0,0]) translate([HX_X0, ATOM_Y-HX_W/2, FLOOR]) cube([HX_L, HX_W, 1 + 1.6]);   // 테이프 1 + 보드
+module header() mirror([1,0,0]) translate([HX_X0, ATOM_Y-HX_W/2+2, FLOOR+2.6]) cube([ATOM_X+ATOM/2-HX_X0, HX_W-4, ATOM_Z0-FLOOR-2.6]);
 module lc()    translate([-LC_L/2, LC_Y-LC_S/2, LC_Z0]) cube([LC_L, LC_S, LC_S]);
 module m5()    for (x = HOLE_X) translate([x, LC_Y, 0]) { cylinder(d1=10, d2=5, h=2.5); cylinder(d=5, h=16); }
 module m4()    for (x = HOLE_X) translate([-x, LC_Y, PAN_Z0+PAN_T]) mirror([0,0,1]) { cylinder(d1=8, d2=4, h=2.2); cylinder(d=4, h=20); }

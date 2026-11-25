@@ -34,8 +34,9 @@ FREE_SP_H = PAN_Z0 - (LC_Z0 + LC_S);   // 저울판 받침 높이 4.3
 HOLE_X = [LC_L/2 - 5, LC_L/2 - 20];
 
 // 띠 고정 핀 (앞 가장자리 기준)
-PINS_L = [[-36, D/2 - 6], [-36, D/2 - 24]];
-PIN_R = [W/2 - WALL - 2, D/2 - 26];
+// 실물: USB-C를 앞으로 볼 때 HX711은 AtomS3 오른쪽(-x)으로 뻗음 → 보스는 +x 쪽
+PINS_L = [[36, D/2 - 6], [36, D/2 - 24]];
+PIN_R = [-(W/2 - WALL - 2), D/2 - 26];
 // 선 보관 공간 (AtomS3 뒤 ~ 로드셀 앞)
 BAY_Y = ((ATOM_Y - ATOM/2) + (LC_Y + LC_S/2)) / 2;
 RIB_Y = ((LC_Y + LC_S/2) + PAN_Y1) / 2;   // 로드셀 위는 피함
@@ -57,14 +58,14 @@ module body() {
       // 로드셀 고정 받침 (M5, 오른쪽)
       translate([LC_L/2 - SPACER_L, LC_Y - 7, 0]) cube([SPACER_L, 14, LC_Z0]);
       // AtomS3 받침대 (HX711 밖으로 튀어나온 15.8mm 밑)
-      translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, 0]) cube([HX_X0 - 0.3 - (ATOM_X - ATOM/2), ATOM, ATOM_Z0]);
+      mirror([1,0,0]) translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, 0]) cube([HX_X0 - 0.3 - (ATOM_X - ATOM/2), ATOM, ATOM_Z0]);
       // AtomS3 뒤쪽 멈춤턱 (USB 꽂을 때 미는 힘) — 왼쪽 옆면 RESET 자리는 비움
-      translate([ATOM_X - ATOM/2 + 4, ATOM_Y - ATOM/2 - 2 - TOL, 0]) cube([8, 2, ATOM_TOP - 3]);
+      mirror([1,0,0]) translate([ATOM_X - ATOM/2 + 4, ATOM_Y - ATOM/2 - 2 - TOL, 0]) cube([8, 2, ATOM_TOP - 3]);
       // 선 보관 기둥
       for (x = [-8, 24]) translate([x, BAY_Y, 0]) cylinder(d = 3.5, h = FLOOR + 7);
       // 띠 고정 보스 (왼쪽 2, 오른쪽 벽쪽 1)
       for (p = PINS_L) translate([p[0], p[1], 0]) cylinder(d = 6, h = WALL_TOP);
-      translate([W/2 - WALL - 4, PIN_R[1] - 3, 0]) cube([4, 6, WALL_TOP]);
+      translate([-W/2 + WALL, PIN_R[1] - 3, 0]) cube([4, 6, WALL_TOP]);
     }
     // USB-C 홈 (위가 열린 U자, 띠가 덮음)
     // 보조배터리 플러그 몸통(약 12.5x6.5)이 지나가도록 13.6x7.5 이상
@@ -93,7 +94,7 @@ module brow() {
     }
     // 뒤쪽 가장자리 보강 립
     // (왼쪽 보스·오른쪽 블록 피함)
-    translate([-32, D/2 - BROW_D, -2]) cube([68, 1.6, 2]);
+    translate([-36, D/2 - BROW_D, -2]) cube([68, 1.6, 2]);
     // 고정 핀
     for (p = concat(PINS_L, [PIN_R])) translate([p[0], p[1], -4]) cylinder(d = 2.4, h = 4);
   }
@@ -140,7 +141,7 @@ module cap() {
 module refs() {
   color("silver") translate([-LC_L/2, LC_Y - LC_S/2, LC_Z0]) cube([LC_L, LC_S, LC_S]);
   color("white") translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, ATOM_Z0]) cube([ATOM, ATOM, ATOM_H]);
-  color("green") translate([HX_X0, ATOM_Y - HX_W/2, FLOOR + 1]) cube([HX_L, HX_W, 1.6]);
+  color("green") mirror([1,0,0]) translate([HX_X0, ATOM_Y - HX_W/2, FLOOR + 1]) cube([HX_L, HX_W, 1.6]);
   color("cyan") for (s = [-1, 1]) translate([ATOM_X + s*EYE_DX, ATOM_Y, ATOM_TOP + 0.6]) cylinder(d = 3, h = CAP_TOP - ATOM_TOP - 0.6);
 }
 
