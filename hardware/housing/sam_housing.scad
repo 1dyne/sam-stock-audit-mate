@@ -58,9 +58,7 @@ module body() {
       // 로드셀 고정 받침 (M5, 오른쪽)
       translate([LC_L/2 - SPACER_L, LC_Y - 7, 0]) cube([SPACER_L, 14, LC_Z0]);
       // AtomS3 받침대 (HX711 밖으로 튀어나온 15.8mm 밑)
-      mirror([1,0,0]) translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, 0]) cube([HX_X0 - 0.3 - (ATOM_X - ATOM/2), ATOM, ATOM_Z0]);
       // AtomS3 뒤쪽 멈춤턱 (USB 꽂을 때 미는 힘) — 왼쪽 옆면 RESET 자리는 비움
-      mirror([1,0,0]) translate([ATOM_X - ATOM/2 + 4, ATOM_Y - ATOM/2 - 2 - TOL, 0]) cube([8, 2, ATOM_TOP - 3]);
       // 선 보관 기둥
       for (x = [-8, 24]) translate([x, BAY_Y, 0]) cylinder(d = 3.5, h = FLOOR + 7);
       // 띠 고정 보스 (왼쪽 2, 오른쪽 벽쪽 1)
@@ -90,7 +88,7 @@ module brow() {
         translate([-W/2, D/2 - BROW_D, 0]) cube([W, BROW_D, BROW_T]);
       }
       // 얼굴 캡 구멍
-      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(CAP_W + 2*TOL, CAP_D + 2*TOL, 2 + TOL);
+      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(22, 22, 3);   // 캡 없이 AtomS3 버튼을 손가락으로 직접 누름
     }
     // 뒤쪽 가장자리 보강 립
     // (왼쪽 보스·오른쪽 블록 피함)
@@ -145,7 +143,11 @@ module refs() {
   color("cyan") for (s = [-1, 1]) translate([ATOM_X + s*EYE_DX, ATOM_Y, ATOM_TOP + 0.6]) cylinder(d = 3, h = CAP_TOP - ATOM_TOP - 0.6);
 }
 
-if (part == "body") body();
+// 따로 출력해 본드로 붙이는 AtomS3 받침 (ㄴ자: 뒤 턱이 USB 꽂는 힘을 받음)
+module pedestal() { cube([15.5, 24, ATOM_Z0 - FLOOR]); translate([0, -2, 0]) cube([15.5, 2, ATOM_Z0 - FLOOR + 6]); }
+
+if (part == "pedestal") pedestal();
+else if (part == "body") body();
 else if (part == "brow") brow();
 else if (part == "pan") pan();
 else if (part == "cap") cap();
