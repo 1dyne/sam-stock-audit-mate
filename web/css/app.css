@@ -29,7 +29,7 @@ button { font: inherit; color: inherit; }
 
 /* 위 · 진행 */
 .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 16px 2px; min-height: 48px; }
-.top .back { width: 40px; height: 40px; display: grid; place-items: center; font-size: 26px; text-decoration: none; margin-left: -10px; }
+.top .back { width: 40px; height: 40px; display: grid; place-items: center; font-size: 26px; text-decoration: none; margin-left: -10px; border: 0; background: none; padding: 0; cursor: pointer; }
 .top .t { font-weight: 700; font-size: 15px; flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .top .t .place-t { text-decoration: none; font-size: 17px; }
 .top .r { min-width: 40px; text-align: right; font-size: 13px; color: var(--tx2); display: flex; justify-content: flex-end; }
@@ -193,10 +193,22 @@ a.row:active, button.row:active { background-color: var(--soft); }
 .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ln); background: var(--bg); padding: 6px 4px calc(8px + env(safe-area-inset-bottom)); position: sticky; bottom: 0; }
 .tabbar a { text-align: center; font-size: 11.5px; font-weight: 700; color: var(--tx2); text-decoration: none; padding: 4px 0; }
 .tabbar a.on { color: var(--tx); }
-.tabbar a i { display: block; width: 18px; height: 18px; margin: 0 auto 3px; border-radius: 5px; border: 2px solid currentColor; }
-.tabbar a.on i { background: currentColor; }
-.th + .tabbar { position: static; }
-.scale-link { display: block; text-decoration: none; }
+.tabbar a svg { display: block; width: 24px; height: 24px; margin: 0 auto 2px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar a.on svg { stroke-width: 2.4; }
+/* 아래 버튼과 탭은 한 덩어리로 화면 아래에 붙는다(버튼이 있어도 탭이 밀려 내려가지 않게) */
+.foot { position: sticky; bottom: 0; background: var(--bg); z-index: 5; }
+.foot .th, .foot .tabbar { position: static; }
+.foot .th + .tabbar { padding-top: 6px; }
+.foot .th:has(+ .tabbar) { padding-bottom: 10px; }
+.top .r a.scale-link { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-size: 12px; font-weight: 700; color: var(--tx2); border: 1px solid var(--ln); border-radius: 999px; padding: 4px 9px 4px 5px; min-height: 32px; white-space: nowrap; }
+.top .r a.scale-link.on { color: var(--ok); }
+/* 종류 고르기: 두 칸 */
+.kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kinds .opt { grid-template-columns: 1fr; min-height: 76px; padding: 10px 12px; align-content: start; }
+.kinds .opt .ck { display: none; }
+.kinds .opt.on { background: var(--tx); color: var(--ink-on); }
+.kinds .opt.on small { color: inherit; opacity: .75; }
+.linkbtn { border: 0; background: none; color: var(--tx2); font-size: 13.5px; font-weight: 700; text-decoration: underline; padding: 10px; cursor: pointer; align-self: center; min-height: 44px; }
 
 /* 알림 · 아래 창 */
 .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--tx); color: var(--ink-on); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 50; max-width: calc(100vw - 32px); width: max-content; text-align: center; animation: toast-in .18s var(--ease) both; }

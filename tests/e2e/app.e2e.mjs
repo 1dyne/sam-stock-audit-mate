@@ -45,14 +45,8 @@ try {
   await p.getByText('안녕하세요, 셈이에요').waitFor();
   await shot(p, '01-start');
   await click(p, '시작하기');
-  await p.getByText('무엇을 세나요?').waitFor();
-  await click(p, '다음');
-  await p.getByText('이렇게 세면 정확해요').waitFor();
-  await p.getByText('작은 부품은 사만다가 필요해요').waitFor();
-  await shot(p, '02-advice');
-  await click(p, '다음');
-  await p.getByText('자주 쓸 기능만 켜 주세요').waitFor();
-  await click(p, '다음');
+  await p.getByText('어디에 있는 재고를 세나요?').waitFor();
+  await shot(p, '02-place');
   await p.locator('#pname').fill('작업실 부품장');
   await click(p, '다음');
   await p.getByText(/사만다예요|키보드로 연결해요/).waitFor();
@@ -61,7 +55,7 @@ try {
   await p.getByText('사만다와 연결됐어요').waitFor();
   await click(p, '다 됐어요');
   await p.getByText('무엇을 세나요?').waitFor();
-  ok('처음 시작 5단계 → 연습용 저울 연결 → 홈');
+  ok('처음 시작 2단계 → 연습용 저울 연결 → 홈');
 
   // 무게로 세기
   await p.goto(BASE + '#/item/new');

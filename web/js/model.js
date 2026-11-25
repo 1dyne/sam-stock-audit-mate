@@ -27,7 +27,7 @@ export const FEATURES = {
   min_qty: { label: '최소 수량 알림', desc: '이만큼 밑이면 "주문 필요"' },
   ledger: { label: '장부 수량과 비교', desc: '엑셀 장부를 불러와서 차이 보기' },
   daily_batch: { label: '날짜별로 묶기', desc: '센 날마다 기록을 한 묶음으로' },
-  fill: { label: '담기', desc: '정한 개수만큼 덜어 담기' },
+  fill: { label: '나눠 담기', desc: '정한 개수씩 봉투에 덜어 담기' },
 };
 
 /** A1에서 고른 재고 종류에 맞춘 기능 기본값 */

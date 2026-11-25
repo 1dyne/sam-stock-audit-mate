@@ -109,14 +109,21 @@ export function sayBig(text, small = '') {
 }
 
 /** 화면 틀 */
-export function screen({ title = '', back = null, step = null, right = '', body = '', actions = '', tab = null, cls = '' }) {
+const TAB_ICONS = {
+  home: '<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/>',
+  results: '<path d="M10 6h10M10 12h10M10 18h10M4 6l1.2 1.2L7.5 5M4 12l1.2 1.2L7.5 11M4 18l1.2 1.2L7.5 17"/>',
+  items: '<path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8"/>',
+  settings: '<path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/>',
+};
+/** 화면 틀. back = 돌아갈 주소(앞 화면이 없을 때만 씀), backAct = 주소 대신 화면 안 단계를 되돌리는 동작 이름 */
+export function screen({ title = '', back = null, backAct = '', step = null, right = '', body = '', actions = '', tab = null, cls = '' }) {
   const top = (back !== false || title || right) ? `<header class="top">
-      ${back ? `<a class="back" href="${back}" aria-label="뒤로">‹</a>` : '<span class="back"></span>'}
+      ${backAct ? `<button type="button" class="back" data-act="${backAct}" aria-label="앞 단계로">‹</button>` : back ? `<a class="back" href="${back}" aria-label="뒤로">‹</a>` : '<span class="back"></span>'}
       <span class="t">${title}</span><span class="r">${right}</span></header>` : '';
   const prog = step ? `<div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="${step[1]}" aria-valuenow="${step[0]}"><i style="width:${(step[0] / step[1]) * 100}%"></i></div>` : '';
   const tabs = tab ? `<nav class="tabbar">${[['#/', '홈', 'home'], ['#/results', '결과', 'results'], ['#/items', '품목', 'items'], ['#/settings', '설정', 'settings']]
-    .map(([h, l, k]) => `<a href="${h}" class="${k === tab ? 'on' : ''}"><i></i>${l}</a>`).join('')}</nav>` : '';
-  return `<div class="scr ${cls}">${top}${prog}<main class="v">${body}</main>${actions ? `<footer class="th">${actions}</footer>` : ''}${tabs}</div>`;
+    .map(([h, l, k]) => `<a href="${h}" class="${k === tab ? 'on' : ''}"${k === tab ? ' aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${TAB_ICONS[k]}</svg>${l}</a>`).join('')}</nav>` : '';
+  return `<div class="scr ${cls}">${top}${prog}<main class="v">${body}</main>${actions || tabs ? `<div class="foot">${actions ? `<footer class="th">${actions}</footer>` : ''}${tabs}</div>` : ''}</div>`;
 }
 
 export const btn = (label, act, { primary = false, sm = false, arg = '', disabled = false, id = '' } = {}) =>
@@ -133,14 +140,20 @@ export function toast(msg, ms = 2600) {
   clearTimeout(toastTimer);
   const el = toastEl = document.createElement('div');
   el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = msg;
-  const bar = document.querySelector('#app .th, #app .tabbar');
-  const top = bar ? bar.getBoundingClientRect().top : window.innerHeight;
-  el.style.bottom = Math.max(16, window.innerHeight - top + 10) + 'px';
   document.body.appendChild(el);
+  placeToast();
   toastTimer = setTimeout(() => {
     el.classList.add('out');
     setTimeout(() => { el.remove(); if (toastEl === el) toastEl = null; }, 170);
   }, ms);
+}
+
+/** 알림을 지금 화면의 아래 버튼 바로 위에 둔다(화면이 바뀌면 다시 부른다) */
+export function placeToast() {
+  if (!toastEl) return;
+  const bar = document.querySelector('#app .th, #app .tabbar');
+  const top = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+  toastEl.style.bottom = Math.max(16, window.innerHeight - top + 10) + 'px';
 }
 
 /** 아래에서 올라오는 확인 창. 고른 버튼의 value를 돌려준다 */

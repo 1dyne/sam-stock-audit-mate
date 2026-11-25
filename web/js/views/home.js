@@ -65,19 +65,22 @@ export async function home() {
   };
   const grid = items.length
     ? (keys.length ? keys.map(folder).join('') : '<p class="hint">찾는 품목이 없어요.</p>')
-    : `<div class="tiles">${addTile}</div>`;
+    : '';
   const alert = n.chk || n.bad ? `<a class="card between" href="#/results" style="text-decoration:none"><span>${n.chk ? chip('확인 필요 ' + n.chk, 'chk') : ''} ${n.bad ? chip('다시 세기 ' + n.bad, 'bad') : ''}</span><span class="hint">결과 보기 ›</span></a>` : '';
 
-  const right = `<a href="#/connect" class="scale-link" aria-label="사만다 연결">${av('sam', eye(), 30, 'live')}</a>`;
+  // 오른쪽 위: 사만다가 연결됐는지 글자로도 보여 준다(그림만으로는 뭔지 알기 어려움)
+  const live = !!(S.scale && S.scale.live);
+  const right = `<a href="#/connect" class="scale-link${live ? ' on' : ''}" aria-label="사만다 ${live ? '연결됨' : '연결하기'}">${av('sam', eye(), 22, 'live')}<span>${live ? '연결됨' : '사만다 연결'}</span></a>`;
   const body = `${line}
     ${needReconnect ? `<div class="card media">${av('sam', 'off', 36)}<span><b>사만다와 연결이 끊겼어요</b><small class="hint">블루투스는 다시 눌러서 연결해야 해요</small></span>${btn('연결', 'reble', { sm: true })}</div>` : ''}
     ${alert}${search}${grid}`;
   const actions = !items.length
-    ? btn('엑셀·CSV로 한 번에 넣기', 'items', { sm: true })
+    ? btn('재고 넣기', 'add', { primary: true }) + btn('엑셀·CSV로 한 번에 넣기', 'items', { sm: true })
     : (F().fill ? btn('정한 개수씩 나눠 담기', 'fill', { sm: true }) : '');
   return {
     html: screen({ title: `<a href="#/places" class="place-t">${esc(p?.name || '세는 곳')} ▾</a>`, back: false, right, body, actions, tab: 'home' }),
     on: {
+      add: () => go('#/item/new?then=count'),
       items: () => go('#/items?import=1'),
       fill: () => go('#/fill'),
       async reble() { await connectScale('ble'); refresh(); },

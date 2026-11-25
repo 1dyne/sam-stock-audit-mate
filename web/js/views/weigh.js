@@ -47,7 +47,7 @@ export function weigh({ id }) {
   const src = liveSource();
   const steps = { tare: 1, sample: 2, all: 3 };
   const head = (q, small) => say(q, small, 'sam', eye(), true);
-  const base = { title: esc(it.name), back: w.step === 'tare' ? '#/' : null, step: [steps[w.step], 3], right: `${steps[w.step]} / 3` };
+  const base = { title: esc(it.name), back: w.step === 'tare' ? '#/' : null, backAct: w.step === 'tare' ? '' : 'prev', step: [steps[w.step], 3], right: `${steps[w.step]} / 3` };
   let body = '', actions = '';
 
   if (w.step === 'tare') {
@@ -102,6 +102,15 @@ export function weigh({ id }) {
       const c = countFromWeight(r.g, w.unitG, w.tare);
       const cnt = $('cnt'); const err = $('err'); const adv = $('adv'); const warn = $('warn');
       if (!c) return;
+      // 방금 잰 샘플이 그대로 올라가 있으면 아직 '전부'가 아니다: 샘플 개수를 저장해 버리지 않게 막는다
+      if (w.sampleGross != null && Math.abs(r.g - w.sampleGross) < Math.max(0.5, w.unitG * 0.5)) {
+        cnt.textContent = '–'; err.textContent = '';
+        adv.hidden = false; adv.textContent = `지금은 샘플 ${w.sampleN}개만 올라가 있어요. 나머지도 다 올리면 개수가 나와요.`;
+        warn.hidden = true;
+        if (act) { act.disabled = true; act.textContent = '저장'; }
+        w.result = null;
+        return;
+      }
       cnt.textContent = fmt(c.count);
       const e = countError(c.count, w.sampleN, w.unitG);
       err.textContent = `± ${fmt(e)}개`;
@@ -137,6 +146,7 @@ export function weigh({ id }) {
         onReading({ g: v, s: 1, at: Date.now() });
       },
       sim(g) { S.scale?.put?.(Number(g)); },
+      prev() { w.step = w.step === 'all' ? 'sample' : 'tare'; w.sampleGross = null; refresh(); },
       notare() { w.tare = 0; w.containerId = null; w.step = 'sample'; refresh(); },
       async usec(cid) { const c = S.containers.find((x) => x.id === cid); w.tare = c.grams; w.containerId = c.id; w.step = 'sample'; refresh(); },
       async tare() {
@@ -152,12 +162,12 @@ export function weigh({ id }) {
         w.step = 'sample'; refresh();
       },
       n(d) { w.sampleN = Math.max(1, Math.min(500, w.sampleN + Number(d))); refresh(); },
-      reuse() { w.unitG = w.unitSaved.grams; w.sampleN = w.unitSaved.sample_n; w.unitFrom = 'saved'; w.step = 'all'; refresh(); },
+      reuse() { w.unitG = w.unitSaved.grams; w.sampleN = w.unitSaved.sample_n || w.sampleN; w.unitFrom = 'saved'; w.sampleGross = null; w.step = 'all'; refresh(); },
       sample() {
         const net = (w.last?.g ?? 0) - w.tare;
         const u = unitFromSample(net, w.sampleN);
         if (!u) return toast('무게가 0이에요. 샘플을 올려 주세요.');
-        w.unitG = u; w.sampleNet = net; w.unitFrom = 'new'; w.step = 'all'; refresh();
+        w.unitG = u; w.sampleNet = net; w.sampleGross = w.last.g; w.unitFrom = 'new'; w.step = 'all'; refresh();
       },
       more() {
         const a = w.result && sampleAdvice(w.result.count, w.sampleN, w.unitG);

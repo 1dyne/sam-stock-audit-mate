@@ -1,5 +1,5 @@
 // 셈 앱 시작점: 저장소 읽기 → 주소(#/...)에 맞는 화면 그리기.
-import { S, load, db, toast } from './core.js';
+import { S, load, db, toast, placeToast } from './core.js';
 import * as stone from './stone.js';
 import * as onboard from './views/onboard.js';
 import * as home from './views/home.js';
@@ -54,6 +54,8 @@ export async function render() {
   if (!S.settings) return; // 아직 저장소를 읽는 중
   const path = location.hash.replace(/^#\/?/, '').split('?')[0];
   if (!S.settings.onboarded && !path.startsWith('start')) { location.replace('#/start/0'); return; }
+  // 시작을 마친 뒤 시스템 뒤로 가기로 처음 시작 화면에 다시 들어가지 않게
+  if (S.settings.onboarded && path.startsWith('start')) { replacing = true; location.replace('#/'); return; }
   const m = match(path) || match('');
   const seq = ++renderSeq;
   const next = await m.fn(m.params);
@@ -75,6 +77,7 @@ export async function render() {
   root.scrollTop = 0;
   window.scrollTo(0, 0);
   if (current.mount) current.mount(root);
+  placeToast();
   const h = root.querySelector('.q'); if (h) { h.setAttribute('tabindex', '-1'); }
   if (isNav) {
     const scr = root.firstElementChild;

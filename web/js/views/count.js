@@ -2,7 +2,7 @@
 import { S, db, screen, say, btn, btn2, esc, fmt, toast, itemById, photoProfile, saveRecord, saveRow, recordsOfBatch, F, chip, av } from '../core.js';
 import { recordStatus, previousRecord, photoAccuracy, stackedBlobs, countFromBoxes, METHODS } from '../model.js';
 import { BuiltinEngine, loadPhoto } from '../photo-engine.js';
-import { go, refresh } from '../app.js';
+import { go, back, refresh } from '../app.js';
 
 let engine;
 
@@ -194,10 +194,10 @@ export function saved({ id }) {
   const left = recordsOfBatch(r.batch_id).length;
   void left;
   return {
-    html: screen({ title: '저장했어요', back: false, cls: 'cheer', body: say(`${esc(it.name || r.item_name)} ${fmt(r.qty)}${unit}`, `${esc(b?.label || '')} 묶음에 넣었어요 · ${METHODS[r.method]?.label || ''}${r.err ? ` · ±${r.err}` : ''}`)
+    html: screen({ title: '저장했어요', back: false, cls: 'cheer', body: say(`${esc(it.name || r.item_name)} ${fmt(r.qty)}${unit}`, `${esc(b?.label || '')} 기록에 저장했어요 · ${METHODS[r.method]?.by || ''} 셈${r.err ? ` · ±${r.err}개` : ''}`)
       + (q ? `<div class="card">${chip(q.label, q.tone)} ${q.key === 'check' ? '반 개쯤 남거나 모자랐어요. 섞인 게 없는지 확인해 주세요.' : '사진으로는 정확하지 않았어요. 다시 세 주세요.'}</div>` : '')
       + (rows.length ? `<section class="card list">${rows.join('')}</section>` : ''),
-    actions: btn2(btn('고치기', 'edit', { sm: true }), btn('다음 품목', 'next', { primary: true, sm: true })) }),
-    on: { edit: () => go(`#/record/${r.id}`), next: () => go('#/') },
+    actions: btn2(btn('고치기', 'edit', { sm: true }), btn('다른 재고 세기', 'next', { primary: true, sm: true })) }),
+    on: { edit: () => go(`#/record/${r.id}`), next: () => back('#/') },
   };
 }

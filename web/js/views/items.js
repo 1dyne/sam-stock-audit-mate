@@ -1,8 +1,8 @@
 // 품목 목록 · 품목 넣기/고치기 · 엑셀·CSV 불러오기
 import { S, db, screen, say, btn, btn2, esc, fmt, toast, sheet, shareFile, pickFile, place, placeItems, method, saveRow, unitWeight, av } from '../core.js';
-import { METHODS, KINDS, kindOfMethod, deviceAdvice } from '../model.js';
+import { METHODS, KINDS, kindOfMethod } from '../model.js';
 import { parseCSV, parseXLSX, rowsToItems, itemTemplateCSV } from '../tabular.js';
-import { itemHint, routeFor } from './home.js';
+import { routeFor } from './home.js';
 import { go, back, refresh } from '../app.js';
 
 const qs = () => new URLSearchParams(location.hash.split('?')[1] || '');
@@ -10,11 +10,9 @@ const qs = () => new URLSearchParams(location.hash.split('?')[1] || '');
 export function items() {
   const p = place();
   const list = placeItems().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
-  const n = deviceAdvice(list, S.settings.kinds);
-  const advice = list.length ? `<div class="card small-lines">무게 ${n.weight} · 사진 ${n.photo} · 박스 ${n.box} · 직접 ${n.manual}${n.weight ? '<br><span class="hint">무게로 세는 품목은 사만다(재고 측정기)가 있으면 빨라요</span>' : ''}</div>` : '';
-  const body = say(list.length ? `품목 ${fmt(list.length)}개` : '품목을 넣어 주세요', esc(S.catalogs.find((c) => c.id === p?.catalog_id)?.name || ''))
-    + advice
-    + (list.length ? `<section class="card list">${list.map((i) => `<a class="row" href="#/item/${i.id}"><span><b>${esc(i.name)}</b><small>${[i.code, itemHint(i)].filter(Boolean).map(esc).join(' · ')}</small></span><span class="dev">${METHODS[method(i)].label}</span></a>`).join('')}</section>` : '');
+  void p;
+  const body = say(list.length ? `품목 ${fmt(list.length)}개` : '품목을 넣어 주세요', list.length ? '눌러서 이름·종류·폴더를 고쳐요. 세는 건 홈에서 해요' : '하나씩 넣거나 엑셀·CSV로 한 번에 넣어요')
+    + (list.length ? `<section class="card list">${list.map((i) => `<a class="row" href="#/item/${i.id}"><span><b>${esc(i.name)}</b><small>${[i.code, i.location || '폴더 없음'].filter(Boolean).map(esc).join(' · ')}</small></span><span class="dev">${METHODS[method(i)].by} 세기</span></a>`).join('')}</section>` : '');
   return {
     html: screen({ title: '품목', back: false, body, actions: btn2(btn('엑셀·CSV<br>불러오기', 'import', { sm: true }), btn('새 품목', 'add', { primary: true, sm: true })), tab: 'items' }),
     on: { import: importFlow, add: () => go('#/item/new') },
@@ -64,17 +62,16 @@ export function item({ id }) {
   })());
   const it = f.draft;
   // 사람은 '어떤 재고인지'만 고르고, 세는 방법은 셈이 정한다. 바꾸고 싶으면 '다른 방법으로'
-  const kopt = (k) => `<button type="button" class="opt${f.kind === k ? ' on' : ''}" data-act="kind" data-arg="${k}" aria-pressed="${f.kind === k}"><span><b>${KINDS[k].label}</b><small>${KINDS[k].desc}</small></span><span class="ck">${f.kind === k ? '✓' : ''}</span></button>`;
+  const kopt = (k) => `<button type="button" class="opt${f.kind === k ? ' on' : ''}" data-act="kind" data-arg="${k}" aria-pressed="${f.kind === k}"><span><b>${KINDS[k].label}</b><small>${KINDS[k].desc}</small></span></button>`;
   const mchip = (k) => `<button type="button" class="fchip${f.m === k ? ' on' : ''}" data-act="m" data-arg="${k}" aria-pressed="${f.m === k}">${METHODS[k].by}</button>`;
   const plan = f.m ? `<div class="card media">${av(f.m === 'weight' ? 'sam' : 'sem', 'off', 40)}<span><b>${METHODS[f.m].by} 셀게요</b><small class="hint">${METHODS[f.m].plan}</small></span>${f.other ? '' : '<button type="button" class="dev" data-act="other" style="border:0;cursor:pointer">다른 방법</button>'}</div>
     ${f.other ? `<div class="chips">${Object.keys(METHODS).map(mchip).join('')}</div>` : ''}` : '';
   const fld = (name, label, val, attrs = '') => `<label class="field">${label}<input name="${name}" value="${esc(val ?? '')}" ${attrs}></label>`;
   const u = !isNew && unitWeight(it.id);
-  const body = say(isNew ? '어떤 품목인가요?' : esc(it.name))
+  const body = say(isNew ? '무엇을 세나요?' : esc(it.name), isNew ? '이름과 종류만 알려 주세요. 세는 방법은 셈이 정해요' : '')
     + `<form id="itf" class="card form" autocomplete="off">
       ${fld('name', '품목 이름', it.name, 'required placeholder="예: M3 볼트 8mm"')}
-      <div class="field">어떤 재고인가요?</div>
-      ${Object.keys(KINDS).map(kopt).join('')}
+      <div class="field">종류<div class="kinds">${Object.keys(KINDS).map(kopt).join('')}</div></div>
       ${plan}
       ${f.m === 'box' ? fld('pack_qty', '박스당 개수', it.pack_qty, 'inputmode="numeric"') : ''}
       ${fld('location', '폴더 (보관 위치, 선택)', it.location, 'list="locs" placeholder="예: 서랍 A"')}
@@ -85,6 +82,7 @@ export function item({ id }) {
           <div class="grid2">${fld('min_qty', '최소 수량', it.min_qty, 'inputmode="numeric"')}${fld('ledger_qty', '장부 수량', it.ledger_qty, 'inputmode="numeric"')}</div>
         </div></details>
     </form>
+    ${isNew ? '' : '<button type="button" class="linkbtn" data-act="del">이 품목 지우기</button>'}
     ${u ? `<div class="card">저장된 개당 무게 <b class="n">${fmt(u.grams, 3)} g</b> <span class="hint">· ${u.sample_n ? u.sample_n + '개로 잼' : '불러옴'}</span></div>` : ''}`;
   const keep = () => { const fd = Object.fromEntries(new FormData(document.getElementById('itf'))); Object.assign(it, fd); };
   const num = (v) => (String(v).trim() === '' ? null : Number(String(v).replace(/,/g, '')));
@@ -99,7 +97,7 @@ export function item({ id }) {
   }
   return {
     html: screen({ title: isNew ? '새 품목' : '품목', back: then === 'count' ? '#/' : '#/items', body,
-      actions: then === 'count' ? btn('넣고 바로 세기', 'savecount', { primary: true }) : btn2(btn(isNew ? '넣고 세기' : '세기', 'savecount', { sm: true }), btn('저장', 'save', { primary: true, sm: true })) + (isNew ? '' : btn('품목 지우기', 'del', { sm: true })) }),
+      actions: then === 'count' ? btn('넣고 바로 세기', 'savecount', { primary: true }) : btn2(btn(isNew ? '넣고 세기' : '세기', 'savecount', { sm: true }), btn('저장', 'save', { primary: true, sm: true })) }),
     on: {
       m(k) { keep(); f.m = k; refresh(); },
       kind(k) { keep(); f.kind = k; f.m = KINDS[k].method; f.other = false; refresh(); },
