@@ -33,6 +33,7 @@ const ROUTES = [
 const root = document.getElementById('app');
 let current = null;
 let renderSeq = 0;
+let lastPath = null;
 
 function match(path) {
   const parts = path.split('/').filter(Boolean);
@@ -56,6 +57,9 @@ export async function render() {
   if (current?.unmount) { try { current.unmount(); } catch { /* */ } }
   current = next;
   root.innerHTML = current.html;
+  // 다른 화면으로 옮길 때만 들어오는 움직임을 준다. 같은 화면을 다시 그릴 때(저울 상태·선택 바꿈)는 가만히 둔다
+  if (path !== lastPath) root.firstElementChild?.classList.add('enter');
+  lastPath = path;
   root.scrollTop = 0;
   window.scrollTo(0, 0);
   if (current.mount) current.mount(root);

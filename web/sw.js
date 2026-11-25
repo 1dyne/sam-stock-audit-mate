@@ -1,5 +1,5 @@
 // 서비스워커: 앱 화면을 기기에 저장해 인터넷이 끊겨도 셈이 열리게 한다. 서버 API는 캐시하지 않는다.
-const VERSION = 'sem-v0.3.0';
+const VERSION = 'sem-v0.3.1';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-180.png',
   'fonts/jetbrains-mono-latin-500-normal.woff2', 'fonts/jetbrains-mono-latin-700-normal.woff2',

@@ -16,7 +16,7 @@ export function items() {
     + advice
     + (list.length ? `<section class="card list">${list.map((i) => `<a class="row" href="#/item/${i.id}"><span><b>${esc(i.name)}</b><small>${[i.code, itemHint(i)].filter(Boolean).map(esc).join(' · ')}</small></span><span class="dev">${METHODS[method(i)].label}</span></a>`).join('')}</section>` : '');
   return {
-    html: screen({ title: '품목', back: false, body, actions: btn2(btn('엑셀·CSV 불러오기', 'import', { sm: true }), btn('새 품목', 'add', { primary: true, sm: true })), tab: 'items' }),
+    html: screen({ title: '품목', back: false, body, actions: `<div class="b2 even">${btn('엑셀·CSV 불러오기', 'import', { sm: true })}${btn('새 품목', 'add', { primary: true, sm: true })}</div>`, tab: 'items' }),
     on: { import: importFlow, add: () => go('#/item/new') },
     mount() { if (qs().get('import')) { history.replaceState(null, '', '#/items'); importFlow(); } },
   };

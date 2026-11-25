@@ -125,11 +125,22 @@ export const btn2 = (a, b) => `<div class="b2">${a}${b}</div>`;
 export const chip = (label, tone = 'ok') => `<span class="chip ${tone}">${esc(label)}</span>`;
 export const dev = (label) => `<span class="dev">${esc(label)}</span>`;
 
+let toastEl = null;
+let toastTimer = 0;
+/** 짧은 알림. 한 번에 하나만, 아래 버튼을 가리지 않게 버튼 바로 위에 띄운다 */
 export function toast(msg, ms = 2600) {
-  const el = document.createElement('div');
+  if (toastEl) toastEl.remove();
+  clearTimeout(toastTimer);
+  const el = toastEl = document.createElement('div');
   el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = msg;
+  const bar = document.querySelector('#app .th, #app .tabbar');
+  const top = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+  el.style.bottom = Math.max(16, window.innerHeight - top + 10) + 'px';
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), ms);
+  toastTimer = setTimeout(() => {
+    el.classList.add('out');
+    setTimeout(() => { el.remove(); if (toastEl === el) toastEl = null; }, 170);
+  }, ms);
 }
 
 /** 아래에서 올라오는 확인 창. 고른 버튼의 value를 돌려준다 */
@@ -142,11 +153,12 @@ export function sheet(html, buttons) {
     const first = wrap.querySelector('input,select,textarea'); if (first) setTimeout(() => first.focus(), 50);
     wrap.addEventListener('click', (e) => {
       const t = e.target.closest('[data-v]');
-      if (!t) return;
+      if (!t || wrap.classList.contains('out')) return;
       const v = t.dataset.v;
       const form = {};
       wrap.querySelectorAll('[name]').forEach((i) => { if (i.type === 'radio') { if (i.checked) form[i.name] = i.value; } else form[i.name] = i.type === 'checkbox' ? i.checked : i.value; });
-      wrap.remove();
+      wrap.classList.add('out');
+      setTimeout(() => wrap.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 170);
       res(v === '' ? null : { value: v, form });
     });
   });
