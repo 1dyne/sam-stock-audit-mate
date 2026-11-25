@@ -1,0 +1,23 @@
+{
+  // SAM (Stock Audit Mate) — Cloudflare Workers 무료 플랜용 설정
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sam-stock-audit-mate",
+  "main": "server/src/index.js",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./web",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/ws/*"]
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "sam-db" }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SCALE_HUB", "class_name": "ScaleHub" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ScaleHub"] }
+  ],
+  "observability": { "enabled": true }
+}

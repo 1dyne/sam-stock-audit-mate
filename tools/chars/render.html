@@ -1,0 +1,101 @@
+<canvas id=c width=640 height=640></canvas><script>
+const VS='attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }';
+const FS=`
+precision highp float;
+uniform vec2 R; uniform float T, WARP, THICK, SPECK, MORPH, POSY, SQX, SQY, SHAKE, ZOOM, BLINK, SWAY; uniform vec3 LEDC;
+float hash(vec3 p){ p = fract(p*0.3183099+.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.-2.*f);
+  return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float smax(float a,float b,float k){ float h=clamp(.5-.5*(b-a)/k,0.,1.); return mix(b,a,h)+k*h*(1.-h); }
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float sdEqTri(vec2 p, float r){ const float k=1.7320508; p.x=abs(p.x)-r; p.y=p.y+r/k; if(p.x+k*p.y>0.) p=vec2(p.x-k*p.y,-k*p.x-p.y)/2.; p.x-=clamp(p.x,-2.*r,0.); return -length(p)*sign(p.y); }
+float sdBox(vec3 p, vec3 b){ vec3 q=abs(p)-b; return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.); }
+// 셈: 삼각형에 가까운 비정형 조약돌(능선이 남는 쪽이 실제 돌처럼 보여서 유지)
+float pebble(vec3 p){
+  vec2 q = p.xy;
+  q = rot(.14) * q;
+  q.x *= .94;
+  q += WARP * .07 * vec2(sin(q.y*3.1+1.3), sin(q.x*2.7+.4));
+  float rr = .24 + WARP*.06*smoothstep(.0,.6,q.x);
+  float d2 = sdEqTri(q - vec2(0.,-.06), .5) - rr;
+  float inside = clamp(-d2/.5, 0., 1.);
+  float th = (.06 + .22*sqrt(inside)) * THICK;
+  th += WARP*.018*sin(p.x*4.3 + p.y*3.1);
+  float dz = abs(p.z - .025*sin(p.x*2.2+.5)) - th;
+  return smax(d2, dz, .11) * .7;
+}
+// 사만다: 측정기 윗면 기준, 모서리 둥근 정사각형 판(두께 약 32mm 비율)
+float samantha(vec3 p){
+  return sdBox(p, vec3(.42, .42, .035)) - .12;
+}
+float obj(vec3 p){
+  p.y -= POSY;
+  p.x /= SQX; p.y /= SQY;
+  float d = mix(pebble(p), samantha(p), MORPH);
+  return d * min(SQX, SQY);
+}
+vec3 toLocal(vec3 p){ vec3 q = p; q.xz *= rot(sin(T*.5)*SWAY*(1.-MORPH*.5)); q.yz *= rot(-.14 + MORPH*.42); q.xy *= rot(.06*(1.-MORPH)); return q; }
+vec2 map(vec3 p){
+  float d = obj(toLocal(p));
+  float fl = p.y + .66;
+  return d < fl ? vec2(d, 1.) : vec2(fl, 0.);
+}
+vec3 nor(vec3 p){ vec2 e=vec2(.0015,0.); return normalize(vec3(map(p+e.xyy).x-map(p-e.xyy).x, map(p+e.yxy).x-map(p-e.yxy).x, map(p+e.yyx).x-map(p-e.yyx).x)); }
+float shadow(vec3 ro, vec3 rd){ float res=1., t=.03; for(int i=0;i<40;i++){ float h=map(ro+rd*t).x; res=min(res,10.*h/t); t+=clamp(h,.02,.2); if(res<.002||t>5.) break; } return clamp(res,0.,1.); }
+float ao(vec3 p, vec3 n){ float o=0., s=1.; for(int i=1;i<6;i++){ float h=.04*float(i); o+=(h-map(p+n*h).x)*s; s*=.7; } return clamp(1.-2.5*o,0.,1.); }
+float dotEye(vec2 e, vec2 c, float r){ vec2 d = e - c; d.y /= max(BLINK, .07); return step(length(d*vec2(1.2,1.)), r); }
+void main(){
+  vec2 uv = (2.*gl_FragCoord.xy - R) / R.y;
+  uv += SHAKE * .02 * vec2(sin(T*90.), cos(T*77.));
+  vec3 ro = vec3(0., .38, 3.3*ZOOM), ta = vec3(0., -.08, 0.);
+  vec3 ww = normalize(ta-ro), uu = normalize(cross(ww, vec3(0,1,0))), vv = cross(uu, ww);
+  vec3 rd = normalize(uv.x*uu + uv.y*vv + 2.3*ww);
+  vec3 bg = vec3(.925,.922,.91) - .03*uv.y;
+  float t = 0.; vec2 h = vec2(1e9, -1.);
+  for(int i=0;i<140;i++){ h = map(ro+rd*t); if(abs(h.x)<.0006*t || t>10.) break; t += h.x*.85; }
+  vec3 col = bg; if(t>=10.){ gl_FragColor=vec4(0.); return; }
+  if(t<10.){
+    vec3 p = ro+rd*t, n = nor(p);
+    vec3 L1 = normalize(vec3(-.6,.9,.7)), L2 = normalize(vec3(.8,.35,-.4));
+    float sh = mix(.55, 1., shadow(p+n*.002, L1)), oc = ao(p,n);
+    if(h.y < .5){ float a=1.-(.66+.34*sh)*(.78+.22*oc); gl_FragColor=vec4(0.,0.,0.,clamp(a*1.6,0.,1.)); return; }
+    else {
+      vec3 q = toLocal(p); q.y -= POSY; q.x /= SQX; q.y /= SQY;
+      vec3 base = vec3(.935,.93,.92); float led = 0., glow = 0.;
+      float s1 = vnoise(q*55.), s2 = vnoise(q*140.+7.), s3 = vnoise(q*14.+3.);
+      float th = .93 - .05*SPECK;
+      float sp = smoothstep(th-.01, th+.005, s1)*.9 + smoothstep(th-.03, th-.015, s2)*.6;
+      base = mix(base, vec3(.16,.16,.17), clamp(sp,0.,1.)*step(.01,SPECK));
+      base *= .96 + .06*s3;
+      if(MORPH < .5){
+        // 셈: 앞면 검은 점 눈 두 개
+        vec2 e = q.xy - vec2(0., .02);
+        float eyes = max(dotEye(e, vec2(-.12,0.), .048), dotEye(e, vec2(.12,0.), .048));
+        base = mix(base, vec3(.07), eyes * step(.05, q.z));
+      } else {
+        // 사만다: 윗면의 AtomS3 자리에 LED 눈 두 개
+        vec2 e = q.xy - vec2(0., -.24);
+        led = max(dotEye(e, vec2(-.075,0.), .036), dotEye(e, vec2(.075,0.), .036)) * step(.1, q.z);
+        float dl = min(length(e - vec2(-.075,0.)), length(e - vec2(.075,0.)));
+        glow = exp(-dl*22.) * step(.1, q.z) * BLINK;
+        base = mix(base, vec3(.2), led);
+      }
+      float dif = max(dot(n,L1),0.)*sh, fil = max(dot(n,L2),0.)*.55, sky = .5+.5*n.y;
+      vec3 hv = normalize(L1 - rd); float spec = pow(max(dot(n,hv),0.), 28.)*.16*sh;
+      float rim = pow(1.-max(dot(n,-rd),0.), 3.)*.14;
+      col = base*(.5*sky + .78*dif + fil)*(.78+.22*oc) + spec + rim;
+      col = mix(col, LEDC*1.08, led) + LEDC*glow*.22;
+    }
+  }
+  gl_FragColor = vec4(pow(col, vec3(.95)), 1.);
+}`;
+const cv=document.getElementById('c');const gl=cv.getContext('webgl',{alpha:true,premultipliedAlpha:false,preserveDrawingBuffer:true});
+const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(o));return o;};
+const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pr);gl.useProgram(pr);
+const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+const loc=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+window.render=(st,led)=>{gl.viewport(0,0,640,640);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+const U=k=>gl.getUniformLocation(pr,k);gl.uniform2f(U('R'),640,640);gl.uniform1f(U('T'),0);
+for(const k in st)gl.uniform1f(U(k),st[k]);gl.uniform3f(U('LEDC'),...led);gl.drawArrays(gl.TRIANGLES,0,3);return cv.toDataURL('image/png');};
+</script>
