@@ -1,5 +1,5 @@
 // 홈 · 품목 고르기
-import { S, db, screen, say, btn, btn2, esc, fmt, chip, dev, clock, place, placeItems, method, unitWeight, photoProfile, currentBatch, recordsOfBatch, itemById, F, av } from '../core.js';
+import { S, db, screen, say, btn, esc, fmt, chip, place, placeItems, method, unitWeight, photoProfile, currentBatch, recordsOfBatch, itemById, F, av } from '../core.js';
 import { METHODS, recordStatus, previousRecord, photoAccuracy } from '../model.js';
 import { eye, connectScale } from '../scalectl.js';
 import { go, refresh } from '../app.js';
@@ -19,69 +19,75 @@ export async function home() {
   const items = placeItems();
   const b = p ? await currentBatch() : null;
   const recs = b ? recordsOfBatch(b.id) : [];
-  const counted = new Set(recs.map((r) => r.item_id));
+  const recOf = new Map(recs.map((r) => [r.item_id, r]));
   const st = recs.map((r) => recordStatus(r, itemById(r.item_id), previousRecord(S.records, r), F()));
-  const n = { chk: st.filter((s) => s.tone === 'chk').length, bad: st.filter((s) => s.tone === 'bad').length, ok: st.filter((s) => s.tone === 'ok').length };
-  const left = items.filter((i) => !counted.has(i.id)).length;
+  const n = { chk: st.filter((s) => s.tone === 'chk').length, bad: st.filter((s) => s.tone === 'bad').length };
+  const left = items.filter((i) => !recOf.has(i.id)).length;
   const scaleMeta = await db.getMeta('scale');
   const needReconnect = scaleMeta?.kind === 'ble' && !(S.scale && S.scale.live);
 
   let line;
-  if (!items.length) line = say('품목을 넣어 주세요', '엑셀로 불러오거나, 세면서 하나씩 넣어도 돼요');
-  else if (!left) line = say(`${esc(b.label)} 묶음, 다 셌어요`, '결과에서 확인하고 보낼 수 있어요');
-  else line = say(`${esc(b.label)} 묶음, ${fmt(left)}개 남았어요`);
+  if (!items.length) line = say('무엇을 세나요?', '세야 할 재고를 하나 넣어 주세요. 세는 방법은 셈이 정해요');
+  else if (!left) line = say('다 셌어요', `${esc(b.label)} · 결과에서 확인하고 보낼 수 있어요`);
+  else line = say('무엇을 셀까요?', `${esc(b.label)} · ${fmt(left)}개 남았어요`);
 
-  const recent = [...recs].sort((a, b2) => b2.counted_at - a.counted_at).slice(0, 5).map((r, i) => {
-    const it = itemById(r.item_id);
-    const s = st[recs.indexOf(r)];
-    return `<a class="row" href="#/record/${r.id}"><span><b>${esc(it?.name || r.item_name)}</b><small>${METHODS[r.method]?.label || ''} · ${clock(r.counted_at)} ${s.tone !== 'ok' ? chip(s.label, s.tone) : ''}</small></span><span class="n strong">${fmt(r.qty)}</span></a>`;
-    void i;
-  }).join('');
+  // 검색
+  const q = (S.flow.q || '').trim().toLowerCase();
+  const match = (i) => !q || (i.name || '').toLowerCase().includes(q) || (i.code || '').toLowerCase().includes(q) || (i.location || '').toLowerCase().includes(q);
+  const search = items.length > 8 ? `<input class="search" id="q" type="search" placeholder="품목·폴더 찾기" value="${esc(S.flow.q || '')}" aria-label="품목 찾기">` : '';
 
-  const prog = items.length ? `<section class="card"><div class="between"><b>${esc(b.label)}</b><span class="n">${fmt(counted.size)} / ${fmt(items.length)}</span></div>
-      <div class="prog in"><i style="width:${items.length ? (counted.size / items.length) * 100 : 0}%"></i></div>
-      <div class="chips">${n.chk ? chip('확인 필요 ' + n.chk, 'chk') : ''}${n.bad ? chip('다시 세기 ' + n.bad, 'bad') : ''}${chip('완료 ' + n.ok, 'ok')}</div></section>` : '';
+  // 폴더 = 보관 위치. 위치가 없는 품목은 '그 밖의 품목'
+  const groups = new Map();
+  for (const it of [...items].filter(match).sort((a, c) => (a.name || '').localeCompare(c.name || '', 'ko'))) {
+    const k = (it.location || '').trim();
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(it);
+  }
+  const keys = [...groups.keys()].sort((a, c) => (a === '') - (c === '') || a.localeCompare(c, 'ko'));
+  const folds = (S.flow.folds ||= {});
+  const tile = (it) => {
+    const r = recOf.get(it.id);
+    const s = r && st[recs.indexOf(r)];
+    const state = r
+      ? `<span class="tile-n"><b class="n">${fmt(r.qty)}</b>${esc(it.unit || '개')}${s && s.tone !== 'ok' ? ' ' + chip(s.label, s.tone) : ''}</span>`
+      : '<span class="tile-n todo">아직 안 셈</span>';
+    return `<a class="tile${r ? ' done' : ''}" href="${routeFor(it)}"><b class="tile-t">${esc(it.name)}</b><small>${METHODS[method(it)].by} 세기</small>${state}</a>`;
+  };
+  const addTile = '<a class="tile add" href="#/item/new?then=count"><span aria-hidden="true">＋</span>새 재고</a>';
+  const folder = (k, i) => {
+    const list = groups.get(k);
+    const done = list.filter((it) => recOf.has(it.id)).length;
+    const open = q || folds[k] !== false;
+    const last = i === keys.length - 1;
+    const name = k || (keys.length > 1 ? '그 밖의 품목' : '모든 품목');
+    return `<details class="folder" data-fold="${esc(k)}"${open ? ' open' : ''}><summary><span class="folder-t">${esc(name)}</span><span class="n folder-c">${fmt(done)} / ${fmt(list.length)}</span></summary>
+      <div class="tiles">${list.map(tile).join('')}${last && !q ? addTile : ''}</div></details>`;
+  };
+  const grid = items.length
+    ? (keys.length ? keys.map(folder).join('') : '<p class="hint">찾는 품목이 없어요.</p>')
+    : `<div class="tiles">${addTile}</div>`;
+  const alert = n.chk || n.bad ? `<a class="card between" href="#/results" style="text-decoration:none"><span>${n.chk ? chip('확인 필요 ' + n.chk, 'chk') : ''} ${n.bad ? chip('다시 세기 ' + n.bad, 'bad') : ''}</span><span class="hint">결과 보기 ›</span></a>` : '';
 
   const right = `<a href="#/connect" class="scale-link" aria-label="사만다 연결">${av('sam', eye(), 30, 'live')}</a>`;
   const body = `${line}
     ${needReconnect ? `<div class="card media">${av('sam', 'off', 36)}<span><b>사만다와 연결이 끊겼어요</b><small class="hint">블루투스는 다시 눌러서 연결해야 해요</small></span>${btn('연결', 'reble', { sm: true })}</div>` : ''}
-    ${prog}
-    ${recent ? `<div class="sec-h">최근 센 것</div><section class="card list">${recent}</section>` : ''}`;
-  const actions = (items.length ? btn('세기', 'count', { primary: true }) : btn('품목 넣기', 'items', { primary: true }) + btn('세면서 넣기', 'count', { sm: true }))
-    + (F().fill ? btn('담기', 'fill', { sm: true }) : '');
+    ${alert}${search}${grid}`;
+  const actions = !items.length
+    ? btn('엑셀·CSV로 한 번에 넣기', 'items', { sm: true })
+    : (F().fill ? btn('정한 개수씩 나눠 담기', 'fill', { sm: true }) : '');
   return {
     html: screen({ title: `<a href="#/places" class="place-t">${esc(p?.name || '세는 곳')} ▾</a>`, back: false, right, body, actions, tab: 'home' }),
     on: {
-      count: () => go('#/count'),
       items: () => go('#/items?import=1'),
       fill: () => go('#/fill'),
       async reble() { await connectScale('ble'); refresh(); },
     },
-  };
-}
-
-export async function pick() {
-  const items = placeItems();
-  const b = await currentBatch();
-  const counted = new Set(recordsOfBatch(b.id).map((r) => r.item_id));
-  const q = (S.flow.q || '').toLowerCase();
-  const match = (i) => !q || (i.name || '').toLowerCase().includes(q) || (i.code || '').toLowerCase().includes(q);
-  const row = (i) => `<a class="row" href="${routeFor(i)}"><span><b>${esc(i.name)}</b><small>${itemHint(i)}</small></span>${dev(METHODS[method(i)].label)}</a>`;
-  const todo = items.filter((i) => !counted.has(i.id) && match(i));
-  const done = items.filter((i) => counted.has(i.id) && match(i));
-  const body = `${say('무엇을 셀까요?')}
-    <input class="search" id="q" type="search" placeholder="품목 이름·코드 찾기" value="${esc(S.flow.q || '')}" aria-label="품목 찾기">
-    ${todo.length ? `<div class="sec-h">아직 안 센 품목 · ${todo.length}</div><section class="card list">${todo.map(row).join('')}</section>` : ''}
-    ${done.length ? `<div class="sec-h">이번 묶음에서 센 품목 · ${done.length}</div><section class="card list">${done.map(row).join('')}</section>` : ''}
-    ${!items.length ? '<p class="hint">아직 품목이 없어요. 아래에서 새 품목을 넣으면서 바로 셀 수 있어요.</p>' : ''}`;
-  return {
-    html: screen({ title: '세기', back: '#/', body, actions: btn('목록에 없는 새 품목', 'add', { sm: true }) }),
-    on: { add: () => go('#/item/new?then=count') },
     mount(root) {
+      root.querySelectorAll('details.folder').forEach((d) => d.addEventListener('toggle', () => { if (!q) folds[d.dataset.fold] = d.open; }));
       const i = root.querySelector('#q');
+      if (!i) return;
       let t;
-      i.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { S.flow.q = i.value; refresh().then(() => { const n = document.getElementById('q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }); }, 250); });
+      i.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { S.flow.q = i.value; refresh().then(() => { const n2 = document.getElementById('q'); if (n2) { n2.focus(); n2.setSelectionRange(n2.value.length, n2.value.length); } }); }, 250); });
     },
   };
 }
-void btn2;

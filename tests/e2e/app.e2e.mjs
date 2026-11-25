@@ -36,6 +36,7 @@ async function page(ctxOpts = {}) {
   return p;
 }
 const click = (p, text) => p.getByRole('button', { name: text, exact: true }).first().click();
+const kind = (p, label) => p.locator('.opt', { hasText: label }).click(); // 품목: 어떤 재고인지만 고르면 셈이 방법을 정함
 const shot = (p, name) => p.screenshot({ path: join(OUT, name + '.png') });
 
 try {
@@ -59,13 +60,15 @@ try {
   await click(p, '연습용 저울로 해 보기');
   await p.getByText('사만다와 연결됐어요').waitFor();
   await click(p, '다 됐어요');
-  await p.getByText('품목을 넣어 주세요').waitFor();
+  await p.getByText('무엇을 세나요?').waitFor();
   ok('처음 시작 5단계 → 연습용 저울 연결 → 홈');
 
   // 무게로 세기
   await p.goto(BASE + '#/item/new');
   await p.locator('input[name=name]').fill('M3 볼트 8mm');
-  await click(p, '무게');
+  await kind(p, '작고 많은 부품');
+  await p.getByText('무게로 셀게요').waitFor();
+  await p.locator('details.more summary').click();
   await p.locator('input[name=min_qty]').fill('500');
   await click(p, '넣고 세기');
   await p.getByText('통에 담아 재나요?').waitFor();
@@ -95,7 +98,7 @@ try {
   ok(`무게로 세기: 통 48.2g + 샘플 10개(저울 0.1g 단위) → ${cnt1}개 ${err.trim()} (정답 1,284 포함) 저장`);
 
   // 저장한 통을 다시 알아보는지 + 저장된 개당 무게 쓰기
-  await p.goto(BASE + '#/count');
+  await p.goto(BASE + '#/');
   await p.getByText('M3 볼트 8mm').click();
   await click(p, '빈 통');
   await p.waitForTimeout(1300);
@@ -112,7 +115,7 @@ try {
   // 직접 세기
   await p.goto(BASE + '#/item/new');
   await p.locator('input[name=name]').fill('납땜 인두');
-  await click(p, '직접');
+  await kind(p, '크거나 몇 개뿐인 것');
   await click(p, '넣고 세기');
   await p.getByText('몇 개인가요?').waitFor();
   await p.locator('.pad button', { hasText: '6' }).click();
@@ -123,8 +126,9 @@ try {
   // 박스로 세기
   await p.goto(BASE + '#/item/new');
   await p.locator('input[name=name]').fill('A4 복사지');
-  await click(p, '박스');
+  await kind(p, '같은 크기 박스');
   await p.locator('input[name=pack_qty]').fill('5');
+  await p.locator('details.more summary').click();
   await p.locator('input[name=unit]').fill('권');
   await click(p, '넣고 세기');
   await p.getByText('박스가 몇 개인가요?').waitFor();
@@ -140,7 +144,7 @@ try {
   // 사진으로 세기 (기기 안 OpenTally)
   await p.goto(BASE + '#/item/new');
   await p.locator('input[name=name]').fill('PVC 파이프');
-  await click(p, '사진');
+  await kind(p, '펼쳐 놓을 수 있는 낱개');
   await click(p, '넣고 세기');
   await p.getByText('위에서 찍어 주세요').waitFor();
   await p.locator('#cam').setInputFiles('tests/fixtures/pipes37.jpg');
@@ -224,7 +228,7 @@ try {
   assert.equal(backup.tables.records.filter((r) => !r.deleted).length, 4);
   await p.reload();
   await p.goto(BASE + '#/');
-  await p.getByText('최근 센 것').waitFor();
+  await p.locator('.tile.done', { hasText: 'M3 볼트 8mm' }).waitFor(); // 홈 폴더에 센 수량이 남아 있음
   await shot(p, '14-home');
   ok(`백업 파일(기록 ${backup.tables.records.length}건) + 다시 열어도 기록 유지`);
 
@@ -245,7 +249,7 @@ try {
   await shot(ip, '15-ios-connect');
   await click(ip, '키보드로 연결했어요');
   await ip.getByText('키보드로 연결돼 있어요').waitFor();
-  await ip.goto(BASE + '#/count');
+  await ip.goto(BASE + '#/');
   await ip.getByText('100원 동전').click();
   await click(ip, '통 없이');
   await ip.keyboard.type('54.2');

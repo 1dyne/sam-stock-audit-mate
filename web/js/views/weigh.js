@@ -4,6 +4,7 @@ import { S, screen, say, btn, btn2, esc, fmt, fmtG, toast, sheet, itemById, unit
 import { countFromWeight, countError, sampleAdvice, unitFromSample, weightWarnings, WARN_TEXT, matchContainer } from '../model.js';
 import { eye, onScale } from '../scalectl.js';
 import { go, refresh } from '../app.js';
+import { hop } from '../stone.js';
 
 const flowFor = (id) => {
   if (!S.flow.w || S.flow.w.itemId !== id) {
@@ -41,12 +42,12 @@ function simPanel(w, it) {
 
 export function weigh({ id }) {
   const it = itemById(id);
-  if (!it) return { html: screen({ title: '품목 없음', back: '#/count', body: say('품목을 찾지 못했어요') }) };
+  if (!it) return { html: screen({ title: '품목 없음', back: '#/', body: say('품목을 찾지 못했어요') }) };
   const w = flowFor(id);
   const src = liveSource();
   const steps = { tare: 1, sample: 2, all: 3 };
   const head = (q, small) => say(q, small, 'sam', eye(), true);
-  const base = { title: esc(it.name), back: w.step === 'tare' ? '#/count' : null, step: [steps[w.step], 3], right: `${steps[w.step]} / 3` };
+  const base = { title: esc(it.name), back: w.step === 'tare' ? '#/' : null, step: [steps[w.step], 3], right: `${steps[w.step]} / 3` };
   let body = '', actions = '';
 
   if (w.step === 'tare') {
@@ -82,6 +83,9 @@ export function weigh({ id }) {
     if (st) {
       if (src === 'kbd') { st.className = 'chip ok'; st.textContent = '받음'; const kt = $('kt'); if (kt) kt.textContent = '받은 무게 · ' + new Date(r.at).toLocaleTimeString('ko-KR'); }
       else if (src === 'live') { st.classList.toggle('mv', !r.s); st.querySelector('span').textContent = r.s ? '멈췄어요' : '움직이는 중'; }
+      // 무게가 멈추면 사만다가 '됐다'는 듯 한 번 들썩
+      if (r.s && !w.wasStable && r.g > 0.5) hop(document.querySelector('.say .av'), 0.08);
+      w.wasStable = !!r.s;
     }
     const act = $('act');
     if (w.step === 'tare') {
@@ -170,7 +174,7 @@ export function weigh({ id }) {
         const rec = await saveRecord({ item_id: id, qty: r.count, method: 'weight', err: r.err, quality,
           detail: { gross: r.gross, tare: w.tare, container_id: w.containerId, unit_g: w.unitG, sample_n: w.sampleN, exact: Math.round(r.exact * 100) / 100, source: S.scale?.kind || 'manual' } });
         S.flow.w = null;
-        go(`#/saved/${rec.id}`);
+        go(`#/saved/${rec.id}`, { replace: true });
       },
     },
   };
