@@ -146,7 +146,18 @@ module refs() {
 // 따로 출력해 본드로 붙이는 AtomS3 받침 (ㄴ자: 뒤 턱이 USB 꽂는 힘을 받음)
 module pedestal() { cube([15.5, 24, ATOM_Z0 - FLOOR]); translate([0, -2, 0]) cube([15.5, 2, ATOM_Z0 - FLOOR + 6]); }
 
-if (part == "pedestal") pedestal();
+// USB-C 홈 가림 마개: 보조배터리를 쓸 때만 빼고, 평소엔 끼워 둠
+module usbcap() {
+  zb = USB_C - 3.75 + 0.15;  zt = WALL_TOP - 0.15;
+  translate([-6.65, D/2 - WALL, zb]) cube([13.3, WALL, zt - zb]);            // 홈에 끼는 부분
+  difference() {
+    translate([-8.5, D/2, zb - 1.2]) cube([17, 0.8, zt - zb + 1.2]);          // 바깥 테두리
+  }
+  translate([-2.5, D/2 + 0.8, zb - 1.2]) cube([5, 1.2, 1.6]);                 // 손톱 걸이
+}
+
+if (part == "usbcap") usbcap();
+else if (part == "pedestal") pedestal();
 else if (part == "body") body();
 else if (part == "brow") brow();
 else if (part == "pan") pan();

@@ -88,7 +88,7 @@ module brow() {
         translate([-W/2, D/2 - BROW_D, 0]) cube([W, BROW_D, BROW_T]);
       }
       // 얼굴 캡 구멍
-      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(22, 22, 3);   // 캡 없이 AtomS3 버튼을 손가락으로 직접 누름
+      translate([ATOM_X, ATOM_Y, -1]) linear_extrude(BROW_T + 2) rrect(CAP_W + 2*TOL, CAP_D + 2*TOL, 2 + TOL);   // 14.6x13.6 창 (시험 출력에서 확정, USB 단자 가림)
     }
     // 뒤쪽 가장자리 보강 립
     // (왼쪽 보스·오른쪽 블록 피함)
@@ -141,5 +141,18 @@ module refs() {
   color("white") translate([ATOM_X - ATOM/2, ATOM_Y - ATOM/2, ATOM_Z0]) cube([ATOM, ATOM, ATOM_H]);
   color("green") mirror([1,0,0]) translate([HX_X0, ATOM_Y - HX_W/2, FLOOR + 1]) cube([HX_L, HX_W, 1.6]);
   color("cyan") for (s = [-1, 1]) translate([ATOM_X + s*EYE_DX, ATOM_Y, ATOM_TOP + 0.6]) cylinder(d = 3, h = CAP_TOP - ATOM_TOP - 0.6);
+}
+
+// 따로 출력해 본드로 붙이는 AtomS3 받침 (ㄴ자: 뒤 턱이 USB 꽂는 힘을 받음)
+module pedestal() { cube([15.5, 24, ATOM_Z0 - FLOOR]); translate([0, -2, 0]) cube([15.5, 2, ATOM_Z0 - FLOOR + 6]); }
+
+// USB-C 홈 가림 마개: 보조배터리를 쓸 때만 빼고, 평소엔 끼워 둠
+module usbcap() {
+  zb = USB_C - 3.75 + 0.15;  zt = WALL_TOP - 0.15;
+  translate([-6.65, D/2 - WALL, zb]) cube([13.3, WALL, zt - zb]);            // 홈에 끼는 부분
+  difference() {
+    translate([-8.5, D/2, zb - 1.2]) cube([17, 0.8, zt - zb + 1.2]);          // 바깥 테두리
+  }
+  translate([-2.5, D/2 + 0.8, zb - 1.2]) cube([5, 1.2, 1.6]);                 // 손톱 걸이
 }
 
