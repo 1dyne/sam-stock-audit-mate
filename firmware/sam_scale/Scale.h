@@ -28,6 +28,7 @@ class Scale {
   bool adcOk() const { return adcOk_; }
   bool ready() const { return ready_; }  // 부팅 대기·초기 샘플 버리기 끝남
   uint32_t samples() const { return nSamples_; }
+  uint32_t glitches() const { return nGlitch_; }
   float countsPerG() const;
   float bandG() const;
   float windowMeanRaw(uint32_t now) const;  // 안정 창(1초) 필터값 평균
@@ -59,8 +60,8 @@ class Scale {
   void saveCalibration(float zero, float cpg);
 
   ScaleAdc *adc_ = nullptr;
-  uint32_t bootMs_ = 0, lastSampleMs_ = 0, nSamples_ = 0;
-  uint8_t discarded_ = 0;
+  uint32_t bootMs_ = 0, lastSampleMs_ = 0, nSamples_ = 0, nGlitch_ = 0;
+  uint8_t discarded_ = 0, stepRun_ = 0;
   bool ready_ = false, adcOk_ = true, bootZeroDone_ = false;
 
   int32_t raw_ = 0;

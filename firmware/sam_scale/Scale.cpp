@@ -45,13 +45,22 @@ float Scale::countsPerG() const {
   return g_settings.calibrated() ? g_settings.countsPerG : DEFAULT_COUNTS_PER_G;
 }
 
+// HX711 읽기 중 비트가 밀리면 0x1FFFF, 0x3FFFFF처럼 1이 줄줄이 이어진 값(2^n-1)이나 -1이 나온다.
+// 실제 측정값이 정확히 이 모양일 확률은 사실상 0이라 버린다. (11/28 실기: 1번 세트에서 거의 매초 발생)
+static bool isGlitch(int32_t r) {
+  if (r == -1 || r == 0x7FFFFF || r == (int32_t)0xFF800000) return true;
+  return r >= 0x1FFFF && (r & (r + 1)) == 0;
+}
+
 bool Scale::update(uint32_t now) {
   int32_t r;
   bool got = false;
   if (adc_->read(r)) {
     lastSampleMs_ = now;
     adcOk_ = true;
-    if (now - bootMs_ < BOOT_SETTLE_MS) {
+    if (isGlitch(r)) {
+      nGlitch_++;  // HX711은 응답했지만 비트가 밀린 값 → 버림
+    } else if (now - bootMs_ < BOOT_SETTLE_MS) {
       // 부팅 직후 값은 버린다
     } else if (discarded_ < BOOT_DISCARD_SAMPLES) {
       discarded_++;
@@ -72,9 +81,14 @@ void Scale::processSample(int32_t r, uint32_t now) {
   nSamples_++;
   // 원시값이 현재 필터값과 크게 다르면(물건 올림/내림) 중앙값 지연을 기다리지 않고 즉시 unstable.
   // 안정 창을 비워서 새 값으로 창이 다시 찰 때까지 stable 이 나오지 않게 한다.
+  // 한 샘플만 튀는 잡음은 무시하고, 두 샘플 연속으로 벗어나야 급변으로 본다 (0.2.4)
   if (medN_ >= MEDIAN_N && fabsf((float)r - filt_) > STEP_DETECT_COUNTS) {
-    stCount_ = 0;
-    stable_ = false;
+    if (++stepRun_ >= 2) {
+      stCount_ = 0;
+      stable_ = false;
+    }
+  } else {
+    stepRun_ = 0;
   }
   medBuf_[medI_] = r;
   medI_ = (medI_ + 1) % MEDIAN_N;

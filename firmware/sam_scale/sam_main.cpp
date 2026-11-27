@@ -279,8 +279,9 @@ static void logLine(uint32_t now, bool newSample) {
     snprintf(link, sizeof link, "ble=%s conn=%d sec=%d sub=%d", runModeName(s_run), bleConnected(), bleSecured(),
              bleReadingSubscribed());
   }
-  Serial.printf("[M] raw=%ld med=%.0f filt=%.1f w=%.2fg stable=%d state=%s | %s\n", (long)g_scale.raw(),
-                g_scale.medRaw(), g_scale.filtRaw(), g_scale.weightG(), g_scale.stable(), stateName(), link);
+  Serial.printf("[M] raw=%ld med=%.0f filt=%.1f w=%.2fg stable=%d state=%s glitch=%lu | %s\n", (long)g_scale.raw(),
+                g_scale.medRaw(), g_scale.filtRaw(), g_scale.weightG(), g_scale.stable(), stateName(),
+                (unsigned long)g_scale.glitches(), link);
 }
 
 static void handleButton(uint32_t now) {

@@ -11,6 +11,8 @@ static const float TRUE_CPG = -431.7f;  // "실제" 계수 (펌웨어는 모름)
 static float g_load = 0;                // 저울 위 실제 무게 g
 static float g_shake = 0;               // 흔들림 진폭 g
 static int g_noise = 30;                // 원시값 노이즈 ±counts
+static int g_glitchEvery = 0;           // N샘플마다 비트 밀림 값(0x1FFFFF) 넣기
+static int g_spikeOnce = 0;             // 다음 한 샘플에 이만큼 더하기
 static std::mt19937 rng(42);
 static int fails = 0;
 
@@ -24,6 +26,9 @@ class FakeAdc : public ScaleAdc {
     std::uniform_int_distribution<int> n(-g_noise, g_noise);
     std::uniform_real_distribution<float> s(-1, 1);
     o = (int32_t)lroundf(-90650 + TRUE_CPG * (g_load + g_shake * s(rng))) + n(rng);
+    static int k = 0;
+    if (g_glitchEvery && (++k % g_glitchEvery) == 0) o = (k & 1) ? 0x1FFFFF : 0x3FFFFF;
+    if (g_spikeOnce) { o += g_spikeOnce; g_spikeOnce = 0; }
     return true;
   }
   const char *name() const override { return "fake"; }
@@ -124,6 +129,19 @@ int main() {
     check(g_scale.stable() && fabsf(g_scale.weightG() - 100) < 3.0f, "드라이버 다시 올리면 100 ±3 & stable");
     g_noise = 30;
     g_settings.countsPerG = keepCpg; g_settings.save();
+  }
+  printf("8c) 비트 밀림 값(2^n-1)이 2샘플마다 섞여도 무게·안정 유지 (11/28 1번 세트)\n");
+  {
+    g_load = 0; run(3000); g_scale.requestTare(); run(3000);
+    g_glitchEvery = 2; g_load = 50; run(4000);
+    check(g_scale.stable() && fabsf(g_scale.weightG() - 50) < 1.0f, "글리치 섞여도 50g ±1 & stable");
+    printf("  glitches=%u\n", (unsigned)g_scale.glitches());
+    check(g_scale.glitches() > 10, "글리치 카운트 증가");
+    g_glitchEvery = 0;
+    run(2000);
+    g_spikeOnce = 100000; run(150);
+    check(g_scale.stable(), "한 샘플 큰 잡음(비정형)은 안정 유지");
+    run(2000);
   }
   printf("8) 재부팅 후 NVS 값 유지\n");
   Settings s2; s2.load();
