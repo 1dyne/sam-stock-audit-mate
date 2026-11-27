@@ -25,7 +25,7 @@ const String &bleName() {
   static String n;
   if (n.isEmpty()) {
     char b[32];
-    if (g_settings.devNo > 0) snprintf(b, sizeof b, BLE_NAME_PREFIX "%02u", g_settings.devNo);
+    if (g_settings.devNo >= 0) snprintf(b, sizeof b, BLE_NAME_PREFIX "%02d", g_settings.devNo);
     else snprintf(b, sizeof b, BLE_NAME_PREFIX "%s", macHex().substring(8).c_str());
     n = b;
   }

@@ -16,13 +16,14 @@ static void help() {
   Serial.println(F(
       "명령:\n"
       "  info                  설정·상태 JSON 출력\n"
-      "  id <1-99>             스티커 번호 저장 (sam-07) → 재부팅\n"
+      "  id <0-99>             기기 번호 저장 (0 = 샘플) → 재부팅    \n"
       "  ssid <이름>           Wi-Fi 이름 (공백 포함 가능)\n"
       "  pass <비번>           Wi-Fi 비밀번호\n"
       "  server <url>          측정값 POST 주소 (빈칸이면 전송 안 함: 'server -')\n"
       "  key <키>              서버 인증 키 ('key -' 지우기)\n"
       "  tare                  영점\n"
       "  cal [g]               보정 시작 (기본 기준무게 사용). 'cal cancel' 취소\n"
+      "  callock <0|1>         1 = 버튼 길게·블루투스로 보정 못 하게 잠금 (참가자 실수 방지)\n"
       "  calref <g>            기준 무게 저장\n"
       "  factor <counts/g>     보정 계수 직접 입력\n"
       "  band <g>              안정 판정 밴드\n"
@@ -41,12 +42,12 @@ static void help() {
 void cliPrintInfo() {
   ServerStatus sv = g_net.server();
   Serial.printf(
-      "{\"hx\":[%d,%d,%d],\"device_id\":\"%s\",\"ble_name\":\"%s\",\"mode\":\"%s\",\"run\":\"%s\",\"device_no\":%u,\"mac\":\"%s\",\"fw_version\":\"%s\",\"calibrated\":%s,"
+      "{\"hx\":[%d,%d,%d],\"device_id\":\"%s\",\"ble_name\":\"%s\",\"mode\":\"%s\",\"run\":\"%s\",\"cal_lock\":%d,\"device_no\":%d,\"mac\":\"%s\",\"fw_version\":\"%s\",\"calibrated\":%s,"
       "\"counts_per_g\":%.4f,\"zero\":%.1f,\"cal_ref_g\":%.1f,\"stable_band_g\":%.2f,\"azt\":%s,"
       "\"unit_g\":%.3f,\"container_g\":%.2f,\"wifi_ssid\":\"%s\",\"wifi_pass_set\":%s,\"server_url\":\"%s\","
       "\"server_key_set\":%s,\"net\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,\"srv_ok\":%s,\"srv_code\":%d,"
       "\"srv_sent\":%lu,\"srv_failed\":%lu,\"weight_g\":%.2f,\"raw\":%ld,\"stable\":%s,\"adc_ok\":%s}\n",
-      g_settings.hxDt, g_settings.hxSck, g_settings.hxGnd, deviceId().c_str(), bleName().c_str(), runModeName(g_settings.mode), runModeName(currentRunMode()), g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
+      g_settings.hxDt, g_settings.hxSck, g_settings.hxGnd, deviceId().c_str(), bleName().c_str(), runModeName(g_settings.mode), runModeName(currentRunMode()), g_settings.calLock, g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
       g_settings.calibrated() ? "true" : "false", g_settings.countsPerG, g_settings.zeroOffset, g_settings.calRefG,
       g_settings.stableBandG, g_settings.azt ? "true" : "false", g_settings.unitG, g_settings.containerG,
       g_settings.wifiSsid.c_str(), g_settings.wifiPass.isEmpty() ? "false" : "true", g_settings.serverUrl.c_str(),
@@ -71,10 +72,12 @@ static void exec(String line) {
   else if (cmd == "info") cliPrintInfo();
   else if (cmd == "id") {
     int n = arg.toInt();
-    if (n < 1 || n > 99) { Serial.println("ERR id 1~99"); return; }
+    bool digits = arg.length() > 0;
+    for (char c : arg) if (c < '0' || c > '9') digits = false;
+    if (!digits || n > 99) { Serial.println("ERR id 0~99 (0 = 샘플)"); return; }
     g_settings.devNo = n;
     g_settings.save();
-    Serial.printf("OK id=sam-%02d → reboot\n", n);
+    Serial.printf("OK 번호 %02d (블루투스 이름 dalgrak-scale-%02d) → reboot\n", n, n);
     delay(300);
     ESP.restart();
   } else if (cmd == "ssid") { g_settings.wifiSsid = arg; g_settings.save(); Serial.println("OK (reboot 후 적용)"); }
@@ -85,6 +88,10 @@ static void exec(String line) {
   else if (cmd == "cal") {
     if (arg == "cancel") g_scale.cancelCal();
     else g_scale.startCal(arg.toFloat());
+  } else if (cmd == "callock") {
+    g_settings.calLock = arg.toInt() != 0;
+    g_settings.save();
+    Serial.println(g_settings.calLock ? "OK 보정 잠금 (버튼·블루투스 보정 막음, 시리얼 cal은 가능)" : "OK 보정 잠금 해제");
   } else if (cmd == "calref") { g_settings.calRefG = arg.toFloat(); g_settings.save(); Serial.println("OK"); }
   else if (cmd == "factor") { g_settings.countsPerG = arg.toFloat(); g_settings.save(); Serial.println("OK"); }
   else if (cmd == "band") { g_settings.stableBandG = arg.toFloat(); g_settings.save(); Serial.println("OK"); }

@@ -18,7 +18,12 @@ static const uint8_t SCHEMA = 1;
 void Settings::load() {
   Preferences p;
   p.begin(NS, true);
-  devNo = p.getUChar("dev_no", 0);
+  devNo = p.getShort("dev_id", -1);
+  if (devNo < 0) {  // 0.2.0 이전 키(0 = 미설정) 이어받기
+    uint8_t old = p.getUChar("dev_no", 0);
+    if (old > 0) devNo = old;
+  }
+  calLock = p.getBool("cal_lock", false);
   hxSck = p.getChar("hx_sck", HX_SCK_DEFAULT);
   hxDt = p.getChar("hx_dt", HX_DT_DEFAULT);
   hxGnd = p.getChar("hx_gnd", HX_GND_DEFAULT);
@@ -43,7 +48,8 @@ void Settings::save() {
   Preferences p;
   p.begin(NS, false);
   p.putUChar("schema", SCHEMA);
-  p.putUChar("dev_no", devNo);
+  p.putShort("dev_id", devNo);
+  p.putBool("cal_lock", calLock);
   p.putChar("hx_sck", hxSck);
   p.putChar("hx_dt", hxDt);
   p.putChar("hx_gnd", hxGnd);

@@ -161,6 +161,7 @@ static void handleCommand(const String &j) {
     s_unitDeadline = millis() + CMD_UNIT_WAIT_MS;
   } else if (cmd == "cal") {
     if (!jsonNum(j, "ref", num) || num <= 0) num = 0;  // 없으면 저장된 기준 무게
+    if (g_settings.calLock) return sendError("locked", "cal");
     if (g_scale.calibrating()) return sendError("busy", "cal");
     g_scale.startCal(num);
   } else if (cmd == "cal_cancel") {
@@ -238,7 +239,11 @@ static void updateLed(uint32_t now) {
   if (now < s_identifyUntil) return g_led.set(Color::White, Blink::Fast);
   if (!g_scale.ready()) return g_led.set(Color::Blue, Blink::Solid);
   if (g_scale.taring()) return g_led.set(Color::White, Blink::Solid);
-  if (!g_settings.calibrated()) return g_led.set(Color::Red, Blink::Slow);
+  if (!g_settings.calibrated()) {
+    // 보정 안 됨: 빨강 깜빡. 폰이 연결돼 있으면 빨강과 모드 색을 번갈아 → 연결된 것도 보이게
+    if (s_run != RunMode::Wifi && bleConnected() && (now / 600) % 2) return g_led.set(modeColor(s_run), Blink::Solid);
+    return g_led.set(Color::Red, bleConnected() && s_run != RunMode::Wifi ? Blink::Solid : Blink::Slow);
+  }
 
   switch (s_run) {
     case RunMode::Kbd:  // 보라 = 키보드 모드. 연결 전 깜빡, 연결 후 안정이면 보라 / 흔들리면 노랑
@@ -290,13 +295,14 @@ static void handleButton(uint32_t now) {
     case BtnEvent::Double:
       g_scale.requestTare();
       break;
-    case BtnEvent::Triple: {  // 모드 순환 gatt → kbd → wifi → gatt
-      RunMode next = s_run == RunMode::Gatt ? RunMode::Kbd : s_run == RunMode::Kbd ? RunMode::Wifi : RunMode::Gatt;
+    case BtnEvent::Triple: {  // gatt(안드로이드) ↔ kbd(아이폰). wifi 모드는 시리얼 'net wifi'로만 (실수 방지)
+      RunMode next = s_run == RunMode::Gatt ? RunMode::Kbd : RunMode::Gatt;
       requestModeSwitch(next);
       break;
     }
     case BtnEvent::Long:
-      if (!g_scale.calibrating()) g_scale.startCal(0);
+      if (g_settings.calLock) { Serial.println("[CAL] locked (callock 0 으로 해제)"); flash(Color::Red, Blink::Fast, 1000); }
+      else if (!g_scale.calibrating()) g_scale.startCal(0);
       break;
     default: break;
   }
@@ -381,6 +387,11 @@ void samLoop() {
     processUnitPending(now);
     processKbd(now);
     emitStateEvents();
+    static bool prevConn = false;  // 폰이 연결되는 순간 흰색으로 2초 빠르게 깜빡 → "내 저울이 맞나" 눈으로 확인
+    if (bleConnected() != prevConn) {
+      prevConn = bleConnected();
+      if (prevConn) flash(Color::White, Blink::Fast, 2000);
+    }
     bleLoop(now);
   }
 

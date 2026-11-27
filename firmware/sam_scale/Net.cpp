@@ -36,7 +36,7 @@ const String &deviceId() {
   static String s;
   if (s.isEmpty()) {
     char b[16];
-    if (g_settings.devNo > 0) snprintf(b, sizeof b, "sam-%02u", g_settings.devNo);
+    if (g_settings.devNo >= 0) snprintf(b, sizeof b, "sam-%02d", g_settings.devNo);
     else snprintf(b, sizeof b, "sam-%s", macHex().substring(8).c_str());  // MAC 뒤 4자리
     s = b;
   }
@@ -256,7 +256,7 @@ void Net::setupWeb() {
 static String buildPayload(const Reading &r) {
   char b[640];
   snprintf(b, sizeof b,
-           "{\"v\":%d,\"device_id\":\"%s\",\"device_no\":%u,\"mac\":\"%s\",\"fw_version\":\"%s\","
+           "{\"v\":%d,\"device_id\":\"%s\",\"device_no\":%d,\"mac\":\"%s\",\"fw_version\":\"%s\","
            "\"seq\":%lu,\"ts_ms\":%lu,\"weight_g\":%.2f,\"stable\":%s,\"raw\":%ld,\"calibrated\":%s,"
            "\"adc_ok\":%s,\"state\":\"%s\",\"tare_count\":%lu,\"rssi\":%d%s%s%s}",
            SAM_CONTRACT_VERSION, deviceId().c_str(), g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,

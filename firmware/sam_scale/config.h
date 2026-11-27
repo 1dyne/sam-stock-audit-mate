@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define SAM_FW_VERSION "0.2.0"
+#define SAM_FW_VERSION "0.2.1"
 #define SAM_CONTRACT_VERSION 1   // SAM_SPEC.md "펌웨어 ↔ 서버 데이터 계약" 버전
 
 // ── 핀 (ATOMS3 Lite) ──

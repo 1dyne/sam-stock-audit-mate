@@ -11,13 +11,21 @@
 | `kbd` | 아이폰, 앱·서버 없음 | 설정 → 블루투스에서 키보드로 페어링 | 연결 전 보라 깜빡 → 연결 후 보라(안정)/노랑(흔들림), 입력 대기 중 보라 빠르게 깜빡, 입력 성공 흰색 한 번, 실패 빨강 1.5초 |
 | `wifi` | 여럿이 기록을 합칠 때 (선택) | 서버 경유 (`SAM_SPEC.md` §4) | 기존과 같음 |
 
-전환: 버튼 **세 번** (gatt → kbd → wifi → gatt 순환, 새 모드 색으로 깜빡인 뒤 재부팅) · 시리얼 `ble gatt` / `ble kbd` / `net wifi` · GATT command `{"cmd":"mode","v":"kbd"}`.
+전환: 버튼 **세 번** (gatt ↔ kbd 만 오감, 새 모드 색으로 깜빡인 뒤 재부팅. wifi는 시리얼로만 — 0.2.1) · 시리얼 `ble gatt` / `ble kbd` / `net wifi` · GATT command `{"cmd":"mode","v":"kbd"}`.
 GATT와 HID(0x1812)는 한 번에 같이 올리지 않는다 (웹 블루투스가 HID 서비스를 차단 목록에 둠).
 모드마다 블루투스 주소가 다르다(정적 랜덤 주소). 폰이 GATT 서비스 목록과 키보드 서비스 목록을 섞어 캐시하지 않게 하려는 것.
 
+## 0.2.1 변경 (11-27, 밋업 1인 1조립 대비)
+
+- 번호 0 허용 (샘플). 미설정은 MAC 뒤 4자리
+- **폰이 연결되는 순간 LED 흰색 빠르게 2초** → 참가자가 "내 저울에 붙었는지" 눈으로 확인
+- 보정 안 된 상태에서 폰이 연결돼 있으면 빨강과 모드 색(청록/보라)이 번갈아 켜짐
+- 보정 잠금 `callock 1`: 버튼 길게·GATT `cal` 막음 (시리얼 `cal`은 가능)
+- 세 번 누름은 gatt ↔ kbd 만
+
 ## 기기 이름
 
-`dalgrak-scale-NN` — NN = 스티커 번호 2자리 (Wi-Fi AP `sam-NN`, 서버 `device_id`와 같은 번호).
+`dalgrak-scale-NN` — NN = 기기 번호 2자리 (00 = 다인 샘플, 01~13 = 참가자. 시리얼 `id N`) (Wi-Fi AP `sam-NN`, 서버 `device_id`와 같은 번호).
 번호 미설정이면 `dalgrak-scale-XXXX` (MAC 뒤 4자리).
 웹 블루투스 필터 예: `{ filters: [{ namePrefix: "dalgrak-scale-" }], optionalServices: [SERVICE_UUID] }`
 GATT 모드 광고 패킷 = 서비스 UUID, 이름은 스캔 응답에 있다 (31바이트 제한 때문). `filters: [{ services: [SERVICE_UUID] }]`도 된다.
@@ -74,7 +82,7 @@ GATT 모드 광고 패킷 = 서비스 UUID, 이름은 스캔 응답에 있다 (3
 - `tare_done.count`: 부팅 후 영점 횟수. 버튼으로 영점해도 온다 → PWA는 이 이벤트를 받으면 그 전에 잡은 용기 기준을 다시 확인
 - `cal_step`: `empty` 저울 비우기 → `load` 기준 무게 올리기 → `ok`/`fail` (60초 타임아웃 = fail, 저장 안 함). 버튼으로 시작한 보정도 이벤트가 온다
 - `unit_result.err`: `unstable` (5초 안에 안정 안 됨), `too_small` (개당 무게 < 안정 밴드 × 3 = 1.5g)
-- `error.code`: `adc` (저울 무응답), `busy` (보정 중), `uncalibrated`, `bad_arg`, `bad_json`, `unknown_cmd`
+- `error.code`: `adc` (저울 무응답), `busy` (보정 중), `locked` (보정 잠금 `callock 1` 상태에서 cal 명령 — 0.2.1), `uncalibrated`, `bad_arg`, `bad_json`, `unknown_cmd`
 
 ### info
 

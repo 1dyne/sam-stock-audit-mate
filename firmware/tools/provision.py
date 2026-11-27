@@ -45,7 +45,7 @@ def wait_for(s, needles, timeout, echo=True):
 def main():
     a = argparse.ArgumentParser()
     a.add_argument("--port", required=True)
-    a.add_argument("--id", type=int, required=True)
+    a.add_argument("--id", type=int, required=True)  # 0 = 샘플
     a.add_argument("--ssid"); a.add_argument("--pass", dest="pw")
     a.add_argument("--server"); a.add_argument("--key")
     a.add_argument("--ref", type=float, default=1000.0)

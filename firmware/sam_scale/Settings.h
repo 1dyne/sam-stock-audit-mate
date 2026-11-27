@@ -7,7 +7,9 @@ const char *runModeName(RunMode m);
 
 
 struct Settings {
-  uint8_t devNo = 0;
+  int16_t devNo = -1;           // 기기 번호 0~99 (0 = 샘플), -1 = 미설정(MAC 뒤 4자리 사용)
+  bool calLock = false;         // true면 버튼·블루투스 보정 막음 (시리얼 보정만 가능)
+  //
   int8_t hxSck = 5, hxDt = 6, hxGnd = 7;  // HX711 핀 (config.h 기본값, NVS로 변경)            // 스티커 번호 1~99, 0 = 미설정(MAC 뒤 4자리 사용)
   String wifiSsid, wifiPass;
   String serverUrl, serverKey;
