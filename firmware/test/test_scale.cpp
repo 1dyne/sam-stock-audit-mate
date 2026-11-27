@@ -93,6 +93,20 @@ int main() {
   adc.next = 0xFFFFFFFF; run(1500); check(!g_scale.adcOk(), "1초 무응답 → adc_ok=false");
   adc.next = 0; run(500); check(g_scale.adcOk(), "복구");
 
+  printf("8a) 가벼운 기준물 보정 (원시값 변화 약 8700, 11/27 실기 드라이버와 같은 크기)\n");
+  {
+    float keepCpg = g_settings.countsPerG;
+    g_load = 0; run(3000);
+    g_scale.startCal(100); run(3000);
+    g_load = 20.2f; run(4000);  // 20.2g × 431.7 ≈ 8720 counts
+    check(g_scale.calPhase() == CalPhase::Ok, "변화 8700 counts로도 보정 OK");
+    printf("  counts_per_g=%.2f (기준 100g이라 실제 비율의 1/4.95)\n", g_settings.countsPerG);
+    g_scale.clearCalResult();
+    g_load = 0; run(3000);
+    g_load = 20.2f * 2; run(3000);
+    check(fabsf(g_scale.weightG() - 200) < 2.0f, "같은 물건 2배 → 200 ±2 표시");
+    g_settings.countsPerG = keepCpg; g_settings.save();
+  }
   printf("8) 재부팅 후 NVS 값 유지\n");
   Settings s2; s2.load();
   check(s2.countsPerG == g_settings.countsPerG && s2.unitG > 2.4f, "계수·개당무게 NVS 저장됨");

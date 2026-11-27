@@ -150,6 +150,12 @@ void Scale::tick(uint32_t now) {
     return;
   }
   bool stableLong = stable_ && now - stableSince_ >= 1500;
+  static uint32_t lastCalLog = 0;
+  if (cal_ == CalPhase::Load && now - lastCalLog > 2000) {
+    lastCalLog = now;
+    Serial.printf("[CAL] 올린 무게 변화 %.0f / 필요 %d 이상 (stable=%d) — 부족하면 더 무거운 것을 올리세요\n",
+                  fabsf(filt_ - calZero_), CAL_MIN_DELTA_COUNTS, stable_);
+  }
   if (cal_ == CalPhase::Empty && stableLong) {
     calZero_ = filt_;
     cal_ = CalPhase::Load;
@@ -157,7 +163,7 @@ void Scale::tick(uint32_t now) {
     Serial.printf("[CAL] zero=%.1f → 이제 %.0fg 기준 무게를 올리세요\n", calZero_, calRef_);
   } else if (cal_ == CalPhase::Load && stableLong && fabsf(filt_ - calZero_) > CAL_MIN_DELTA_COUNTS) {
     float cpg = (filt_ - calZero_) / calRef_;
-    if (fabsf(cpg) < 50 || fabsf(cpg) > 5000) {
+    if (fabsf(cpg) < 10 || fabsf(cpg) > 5000) {
       cal_ = CalPhase::Fail;
       snprintf(calMsg_, sizeof calMsg_, "factor %.1f out of range (저장 안 함)", cpg);
       Serial.printf("[CAL] fail: %s\n", calMsg_);

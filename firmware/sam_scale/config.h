@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define SAM_FW_VERSION "0.2.1"
+#define SAM_FW_VERSION "0.2.2"
 #define SAM_CONTRACT_VERSION 1   // SAM_SPEC.md "펌웨어 ↔ 서버 데이터 계약" 버전
 
 // ── 핀 (ATOMS3 Lite) ──
@@ -31,7 +31,7 @@
 #define AZT_BAND_G            0.3f  // 영점 추적: 안정 & |w|<band 일 때 천천히 0으로
 #define DEFAULT_COUNTS_PER_G  (-430.0f) // 미보정 추정치(미검증). 누르면 raw 감소 → 음수
 #define CAL_REF_G_DEFAULT     1000.0f   // 기준 분동 무게 (NVS로 변경 가능)
-#define CAL_MIN_DELTA_COUNTS  20000     // 기준 무게 올렸다고 판단할 최소 raw 변화
+#define CAL_MIN_DELTA_COUNTS  3000      // 기준 무게 올렸다고 판단할 최소 raw 변화 (노이즈 ±100의 30배. 0.2.1까지 20000 → 가벼운 기준물 인식 못 함)
 #define CAL_TIMEOUT_MS        60000
 #define COUNT_FRAC_LIMIT      0.25f // |x-round(x)| 이 값 초과면 "확인 필요"
 

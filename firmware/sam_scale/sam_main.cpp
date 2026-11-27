@@ -109,9 +109,9 @@ static void emitStateEvents() {
                        : cp == CalPhase::Fail ? "fail" : nullptr;
     if (step && cp == CalPhase::Ok)
       snprintf(b, sizeof b, "{\"t\":\"e\",\"ev\":\"cal_step\",\"step\":\"ok\",\"factor\":%.3f,\"ref\":%.1f}",
-               g_settings.countsPerG, g_settings.calRefG);
+               g_settings.countsPerG, g_scale.calRef());
     else if (step)
-      snprintf(b, sizeof b, "{\"t\":\"e\",\"ev\":\"cal_step\",\"step\":\"%s\",\"ref\":%.1f}", step, g_settings.calRefG);
+      snprintf(b, sizeof b, "{\"t\":\"e\",\"ev\":\"cal_step\",\"step\":\"%s\",\"ref\":%.1f}", step, g_scale.calRef());
     else if (s_prevCal == CalPhase::Empty || s_prevCal == CalPhase::Load)
       snprintf(b, sizeof b, "{\"t\":\"e\",\"ev\":\"cal_step\",\"step\":\"cancel\"}");
     else b[0] = 0;

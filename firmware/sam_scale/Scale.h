@@ -42,6 +42,7 @@ class Scale {
   bool calibrating() const { return cal_ == CalPhase::Empty || cal_ == CalPhase::Load; }
   void clearCalResult() { if (cal_ == CalPhase::Ok || cal_ == CalPhase::Fail) cal_ = CalPhase::Idle; }
   const char *calMsg() const { return calMsg_; }
+  float calRef() const { return calRef_; }
 
   // 수량
   bool registerUnit(int n, String &err);   // 현재 (무게-용기)/n → 개당 무게, NVS 저장
