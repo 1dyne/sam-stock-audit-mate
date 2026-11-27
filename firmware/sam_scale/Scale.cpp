@@ -23,6 +23,24 @@ void Scale::begin(ScaleAdc *adc) {
   lastSampleMs_ = bootMs_;
 }
 
+float Scale::windowMeanRaw(uint32_t now) const {
+  double s = 0;
+  int n = 0;
+  for (uint8_t i = 0; i < stCount_; i++) {
+    int idx = (stHead_ - 1 - i + ST_N) % ST_N;
+    if (now - stT_[idx] > STABLE_WINDOW_MS) break;
+    s += stW_[idx];
+    n++;
+  }
+  return n ? (float)(s / n) : filt_;
+}
+
+float Scale::settledWeightG() const {
+  return (windowMeanRaw(lastSampleMs_) - g_settings.zeroOffset) / countsPerG();
+}
+
+float Scale::bandG() const { return g_settings.bandCounts / fabsf(countsPerG()); }
+
 float Scale::countsPerG() const {
   return g_settings.calibrated() ? g_settings.countsPerG : DEFAULT_COUNTS_PER_G;
 }
@@ -52,10 +70,9 @@ bool Scale::update(uint32_t now) {
 void Scale::processSample(int32_t r, uint32_t now) {
   raw_ = r;
   nSamples_++;
-  float cpg0 = countsPerG();
   // 원시값이 현재 필터값과 크게 다르면(물건 올림/내림) 중앙값 지연을 기다리지 않고 즉시 unstable.
   // 안정 창을 비워서 새 값으로 창이 다시 찰 때까지 stable 이 나오지 않게 한다.
-  if (medN_ >= MEDIAN_N && fabsf(((float)r - filt_) / cpg0) > STEP_DETECT_G) {
+  if (medN_ >= MEDIAN_N && fabsf((float)r - filt_) > STEP_DETECT_COUNTS) {
     stCount_ = 0;
     stable_ = false;
   }
@@ -66,7 +83,7 @@ void Scale::processSample(int32_t r, uint32_t now) {
 
   float cpg = countsPerG();
   // 큰 변화(물건 올림/내림)는 평균 버퍼를 비워 빠르게 따라간다
-  if (avgN_ > 0 && fabsf((med_ - filt_) / cpg) > FAST_TRACK_G) {
+  if (avgN_ > 0 && fabsf(med_ - filt_) > FAST_TRACK_COUNTS) {
     avgN_ = 0;
     avgI_ = 0;
   }
@@ -85,7 +102,7 @@ void Scale::processSample(int32_t r, uint32_t now) {
   updateStability(now);
 
   // 영점 추적: 빈 저울이 천천히 흐르는 것(온도·크리프)을 0으로 붙잡는다
-  if (g_settings.azt && stable_ && !taring() && !calibrating() && fabsf(weight_) < AZT_BAND_G) {
+  if (g_settings.azt && stable_ && !taring() && !calibrating() && fabsf(filt_ - g_settings.zeroOffset) < AZT_BAND_COUNTS) {
     g_settings.zeroOffset += (filt_ - g_settings.zeroOffset) * 0.05f;
   }
 
@@ -105,7 +122,7 @@ void Scale::processSample(int32_t r, uint32_t now) {
 
 void Scale::updateStability(uint32_t now) {
   stT_[stHead_] = now;
-  stW_[stHead_] = weight_;
+  stW_[stHead_] = filt_;  // counts 기준
   stHead_ = (stHead_ + 1) % ST_N;
   if (stCount_ < ST_N) stCount_++;
   float mn = 1e9, mx = -1e9;
@@ -118,7 +135,7 @@ void Scale::updateStability(uint32_t now) {
     mx = max(mx, stW_[idx]);
   }
   // 창이 거의 다 찼고(≥90%) 변동이 밴드 이하
-  bool st = (now - oldest) >= (STABLE_WINDOW_MS * 9 / 10) && (mx - mn) <= g_settings.stableBandG;
+  bool st = (now - oldest) >= (STABLE_WINDOW_MS * 9 / 10) && (mx - mn) <= g_settings.bandCounts;
   if (st && !stable_) stableSince_ = now;
   stable_ = st;
 }
@@ -157,12 +174,12 @@ void Scale::tick(uint32_t now) {
                   fabsf(filt_ - calZero_), CAL_MIN_DELTA_COUNTS, stable_);
   }
   if (cal_ == CalPhase::Empty && stableLong) {
-    calZero_ = filt_;
+    calZero_ = windowMeanRaw(now);
     cal_ = CalPhase::Load;
     calT0_ = now;
     Serial.printf("[CAL] zero=%.1f → 이제 %.0fg 기준 무게를 올리세요\n", calZero_, calRef_);
   } else if (cal_ == CalPhase::Load && stableLong && fabsf(filt_ - calZero_) > CAL_MIN_DELTA_COUNTS) {
-    float cpg = (filt_ - calZero_) / calRef_;
+    float cpg = (windowMeanRaw(now) - calZero_) / calRef_;
     if (fabsf(cpg) < 10 || fabsf(cpg) > 5000) {
       cal_ = CalPhase::Fail;
       snprintf(calMsg_, sizeof calMsg_, "factor %.1f out of range (저장 안 함)", cpg);
@@ -209,9 +226,9 @@ void Scale::cancelCal() {
 bool Scale::registerUnit(int n, String &err) {
   if (n <= 0) { err = "개수는 1 이상"; return false; }
   if (!stable_) { err = "무게가 안정되지 않음"; return false; }
-  float net = weight_ - g_settings.containerG;
+  float net = settledWeightG() - g_settings.containerG;
   float u = net / n;
-  if (u < g_settings.stableBandG * 3) { err = "개당 무게가 너무 작음 (저울로 세기 어려움)"; return false; }
+  if (u < bandG()) { err = "개당 무게가 너무 작음 (저울로 세기 어려움)"; return false; }  // 개당 ≥ 안정 밴드(약 1g)
   g_settings.unitG = u;
   g_settings.save();
   Serial.printf("[UNIT] n=%d net=%.2fg unit=%.3fg\n", n, net, u);
@@ -220,15 +237,15 @@ bool Scale::registerUnit(int n, String &err) {
 
 bool Scale::setContainerFromCurrent(String &err) {
   if (!stable_) { err = "무게가 안정되지 않음"; return false; }
-  g_settings.containerG = weight_;
+  g_settings.containerG = settledWeightG();
   g_settings.save();
-  Serial.printf("[CONTAINER] %.2fg\n", weight_);
+  Serial.printf("[CONTAINER] %.2fg\n", g_settings.containerG);
   return true;
 }
 
 CountResult Scale::count(float w, float unitG, float containerG, float bandG) {
   CountResult r;
-  if (unitG <= 0 || unitG < bandG * 3) return r;
+  if (unitG <= 0 || unitG < bandG) return r;
   r.valid = true;
   r.exact = (w - containerG) / unitG;
   r.count = lroundf(r.exact);

@@ -26,7 +26,7 @@ static void help() {
       "  callock <0|1>         1 = 버튼 길게·블루투스로 보정 못 하게 잠금 (참가자 실수 방지)\n"
       "  calref <g>            기준 무게 저장\n"
       "  factor <counts/g>     보정 계수 직접 입력\n"
-      "  band <g>              안정 판정 밴드\n"
+      "  band <counts>         안정 판정 밴드 (기본 400 ≈ 1g)\n"
       "  unit <N>              현재 무게/N → 개당 무게 (비상 페이지용)\n"
       "  container | container 0  현재 무게를 용기로 / 용기 0\n"
       "  azt <0|1>             영점 추적\n"
@@ -49,7 +49,7 @@ void cliPrintInfo() {
       "\"srv_sent\":%lu,\"srv_failed\":%lu,\"weight_g\":%.2f,\"raw\":%ld,\"stable\":%s,\"adc_ok\":%s}\n",
       g_settings.hxDt, g_settings.hxSck, g_settings.hxGnd, deviceId().c_str(), bleName().c_str(), runModeName(g_settings.mode), runModeName(currentRunMode()), g_settings.calLock, g_settings.devNo, macHex().c_str(), SAM_FW_VERSION,
       g_settings.calibrated() ? "true" : "false", g_settings.countsPerG, g_settings.zeroOffset, g_settings.calRefG,
-      g_settings.stableBandG, g_settings.azt ? "true" : "false", g_settings.unitG, g_settings.containerG,
+      g_scale.bandG(), g_settings.azt ? "true" : "false", g_settings.unitG, g_settings.containerG,
       g_settings.wifiSsid.c_str(), g_settings.wifiPass.isEmpty() ? "false" : "true", g_settings.serverUrl.c_str(),
       g_settings.serverKey.isEmpty() ? "false" : "true", g_net.modeName(), g_net.ip().c_str(), g_net.rssi(),
       sv.ok ? "true" : "false", sv.lastCode, (unsigned long)sv.sent, (unsigned long)sv.failed, g_scale.weightG(),
@@ -94,7 +94,7 @@ static void exec(String line) {
     Serial.println(g_settings.calLock ? "OK 보정 잠금 (버튼·블루투스 보정 막음, 시리얼 cal은 가능)" : "OK 보정 잠금 해제");
   } else if (cmd == "calref") { g_settings.calRefG = arg.toFloat(); g_settings.save(); Serial.println("OK"); }
   else if (cmd == "factor") { g_settings.countsPerG = arg.toFloat(); g_settings.save(); Serial.println("OK"); }
-  else if (cmd == "band") { g_settings.stableBandG = arg.toFloat(); g_settings.save(); Serial.println("OK"); }
+  else if (cmd == "band") { g_settings.bandCounts = arg.toFloat(); g_settings.save(); Serial.printf("OK 안정 밴드 %.0f counts\n", g_settings.bandCounts); }
   else if (cmd == "unit") Serial.println(g_scale.registerUnit(arg.toInt(), err) ? "OK" : "ERR " + err);
   else if (cmd == "container") {
     if (arg == "0") { g_settings.containerG = 0; g_settings.save(); Serial.println("OK"); }

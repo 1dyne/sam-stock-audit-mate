@@ -29,6 +29,9 @@ class Scale {
   bool ready() const { return ready_; }  // 부팅 대기·초기 샘플 버리기 끝남
   uint32_t samples() const { return nSamples_; }
   float countsPerG() const;
+  float bandG() const;
+  float windowMeanRaw(uint32_t now) const;  // 안정 창(1초) 필터값 평균
+  float settledWeightG() const;             // 창 평균으로 계산한 무게 (등록·용기·보정용)  // 안정 밴드를 현재 g 단위로 (보정 비율에 따라 달라짐)
 
   // 영점
   void requestTare();

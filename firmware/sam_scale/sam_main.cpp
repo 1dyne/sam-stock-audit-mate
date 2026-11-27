@@ -182,7 +182,7 @@ static void processUnitPending(uint32_t now) {
   char b[BLE_MSG_MAX + 1];
   if (g_scale.stable() && measuringOk()) {
     String err;
-    float net = g_scale.weightG() - g_settings.containerG;
+    float net = g_scale.settledWeightG() - g_settings.containerG;
     if (g_scale.registerUnit(s_unitPendingN, err))
       snprintf(b, sizeof b, "{\"t\":\"e\",\"ev\":\"unit_result\",\"ok\":true,\"n\":%d,\"unit\":%.3f,\"net\":%.1f}",
                s_unitPendingN, g_settings.unitG, net);
@@ -209,7 +209,7 @@ static void processKbd(uint32_t now) {
   if (!s_kbdPending) return;
   if (g_scale.stable() && measuringOk()) {
     char b[24];
-    snprintf(b, sizeof b, "%.1f\n", g_scale.weightG());
+    snprintf(b, sizeof b, "%.1f\n", g_scale.settledWeightG());
     bool ok = bleTypeText(b);
     Serial.printf("[KBD] typed %.1f ok=%d\n", g_scale.weightG(), ok);
     flash(ok ? Color::White : Color::Red, Blink::Solid, ok ? 150 : 1500);

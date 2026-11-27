@@ -181,7 +181,7 @@ static String jsonEsc(const String &in) {
 
 static void handleState() {
   ServerStatus sv = g_net.server();
-  CountResult c = Scale::count(g_scale.weightG(), g_settings.unitG, g_settings.containerG, g_settings.stableBandG);
+  CountResult c = Scale::count(g_scale.weightG(), g_settings.unitG, g_settings.containerG, g_scale.bandG());
   char b[900];
   snprintf(b, sizeof b,
            "{\"device_id\":\"%s\",\"fw_version\":\"%s\",\"weight_g\":%.2f,\"stable\":%s,\"raw\":%ld,"

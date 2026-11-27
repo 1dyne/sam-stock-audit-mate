@@ -10,6 +10,7 @@ std::map<std::string, std::string> g_nvs;
 static const float TRUE_CPG = -431.7f;  // "실제" 계수 (펌웨어는 모름)
 static float g_load = 0;                // 저울 위 실제 무게 g
 static float g_shake = 0;               // 흔들림 진폭 g
+static int g_noise = 30;                // 원시값 노이즈 ±counts
 static std::mt19937 rng(42);
 static int fails = 0;
 
@@ -20,7 +21,7 @@ class FakeAdc : public ScaleAdc {
   bool read(int32_t &o) override {
     if (millis() < next) return false;
     next = millis() + 100;
-    std::uniform_int_distribution<int> n(-30, 30);
+    std::uniform_int_distribution<int> n(-g_noise, g_noise);
     std::uniform_real_distribution<float> s(-1, 1);
     o = (int32_t)lroundf(-90650 + TRUE_CPG * (g_load + g_shake * s(rng))) + n(rng);
     return true;
@@ -77,12 +78,12 @@ int main() {
   printf("  unit_g=%.3f\n", g_settings.unitG);
   for (int n : {1, 37, 120, 400}) {
     g_load = 50 + n * 2.5f; run(3000);
-    CountResult c = Scale::count(g_scale.weightG(), g_settings.unitG, g_settings.containerG, g_settings.stableBandG);
+    CountResult c = Scale::count(g_scale.weightG(), g_settings.unitG, g_settings.containerG, g_scale.bandG());
     char m[80]; snprintf(m, 80, "%d개 → %ld개 (exact %.2f) check=%d", n, c.count, c.exact, c.needsCheck);
     check(c.valid && c.count == n && !c.needsCheck, m);
   }
   g_load = 50 + 37 * 2.5f + 1.25f; run(3000);  // 반 개 무게 (이물질/다른 부품)
-  CountResult c = Scale::count(g_scale.weightG(), g_settings.unitG, g_settings.containerG, g_settings.stableBandG);
+  CountResult c = Scale::count(g_scale.weightG(), g_settings.unitG, g_settings.containerG, g_scale.bandG());
   check(c.needsCheck, "반 개 남는 무게 → 확인 필요");
 
   printf("6) 개당 무게가 너무 작으면 거부\n");
@@ -105,6 +106,23 @@ int main() {
     g_load = 0; run(3000);
     g_load = 20.2f * 2; run(3000);
     check(fabsf(g_scale.weightG() - 200) < 2.0f, "같은 물건 2배 → 200 ±2 표시");
+    g_settings.countsPerG = keepCpg; g_settings.save();
+  }
+  printf("8b) 하우징 실기 수준 노이즈(원시 ±200) + 드라이버 보정 후에도 안정 판정\n");
+  {
+    float keepCpg = g_settings.countsPerG;
+    g_noise = 200;
+    g_load = 0; run(3000);
+    g_scale.startCal(100); run(4000);
+    check(g_scale.calPhase() == CalPhase::Load, "노이즈 ±200에서도 빈 저울 안정 → Load");
+    g_load = 20.2f; run(5000);
+    check(g_scale.calPhase() == CalPhase::Ok, "노이즈 ±200 + 변화 8700 → 보정 OK");
+    g_scale.clearCalResult();
+    g_load = 0; run(3000); g_scale.requestTare(); run(3000);
+    check(g_scale.stable(), "보정 비율이 작아져도(약 87 counts/g) 빈 저울 stable");
+    g_load = 20.2f; run(3000);
+    check(g_scale.stable() && fabsf(g_scale.weightG() - 100) < 3.0f, "드라이버 다시 올리면 100 ±3 & stable");
+    g_noise = 30;
     g_settings.countsPerG = keepCpg; g_settings.save();
   }
   printf("8) 재부팅 후 NVS 값 유지\n");

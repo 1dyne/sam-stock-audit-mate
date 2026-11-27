@@ -16,7 +16,7 @@ struct Settings {
   float countsPerG = 0;         // 0 = 미보정
   float zeroOffset = 0;         // 영점 raw
   float calRefG = 0;
-  float stableBandG = 0;
+  float bandCounts = 0;         // 안정 판정 밴드 (counts)
   float unitG = 0;              // 비상 페이지용 개당 무게 (온라인 수량은 PWA가 계산)
   float containerG = 0;         // 비상 페이지용 빈 용기 무게
   bool azt = true;              // 영점 추적

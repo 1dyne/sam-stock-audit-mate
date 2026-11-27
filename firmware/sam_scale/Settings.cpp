@@ -34,7 +34,7 @@ void Settings::load() {
   countsPerG = p.getFloat("cpg", 0);
   zeroOffset = p.getFloat("zero", 0);
   calRefG = p.getFloat("cal_ref", CAL_REF_G_DEFAULT);
-  stableBandG = p.getFloat("st_band", STABLE_BAND_G_DEFAULT);
+  bandCounts = p.getFloat("st_cnt", STABLE_BAND_COUNTS_DEFAULT);
   unitG = p.getFloat("unit_g", 0);
   containerG = p.getFloat("cont_g", 0);
   azt = p.getBool("azt", true);
@@ -60,7 +60,7 @@ void Settings::save() {
   p.putFloat("cpg", countsPerG);
   p.putFloat("zero", zeroOffset);
   p.putFloat("cal_ref", calRefG);
-  p.putFloat("st_band", stableBandG);
+  p.putFloat("st_cnt", bandCounts);
   p.putFloat("unit_g", unitG);
   p.putFloat("cont_g", containerG);
   p.putBool("azt", azt);

@@ -40,7 +40,7 @@ static String buildInfo() {
   char b[BLE_MSG_MAX + 1];
   snprintf(b, sizeof b, "{\"fw\":\"%s\",\"cal\":%s,\"factor\":%.3f,\"ref\":%.1f,\"mode\":\"%s\",\"id\":\"%s\",\"unit\":%.3f,\"band\":%.2f}",
            SAM_FW_VERSION, g_settings.calibrated() ? "true" : "false", g_settings.countsPerG, g_settings.calRefG,
-           runModeName(s_mode), bleName().c_str(), g_settings.unitG, g_settings.stableBandG);
+           runModeName(s_mode), bleName().c_str(), g_settings.unitG, g_scale.bandG());
   return String(b);
 }
 

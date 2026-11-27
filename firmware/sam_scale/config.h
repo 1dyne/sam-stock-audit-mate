@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define SAM_FW_VERSION "0.2.2"
+#define SAM_FW_VERSION "0.2.3"
 #define SAM_CONTRACT_VERSION 1   // SAM_SPEC.md "펌웨어 ↔ 서버 데이터 계약" 버전
 
 // ── 핀 (ATOMS3 Lite) ──
@@ -20,15 +20,18 @@
 #define BOOT_DISCARD_SAMPLES  5     // 초기 샘플 버리기
 #define MEDIAN_N              5     // 중앙값 창 (10Hz 기준 0.5s)
 #define AVG_N                 4     // 이동평균 창
-#define FAST_TRACK_G          20.0f // 이보다 크게 바뀌면 평균 버퍼 리셋(빠른 반응)
-#define STEP_DETECT_G         2.0f  // 원시값 한 샘플이 이만큼 튀면 즉시 unstable
+// 0.2.3: 판정 임계값은 전부 원시값(counts) 기준. 보정 기준물이 임의(드라이버 = "100")면 g 숫자가 실제와
+// 다른 비율이 되므로, g 기준 임계값은 기기마다 다르게 동작했다. 아래는 일반 5kg 로드셀(약 430 counts/g) 환산.
+#define NOMINAL_CPG           430.0f
+#define FAST_TRACK_COUNTS     8600.0f // 약 20g. 이보다 크게 바뀌면 평균 버퍼 리셋(빠른 반응)
+#define STEP_DETECT_COUNTS    860.0f // 약 2g. 원시값 한 샘플이 이만큼 튀면 즉시 unstable
 #define STABLE_WINDOW_MS      1000  // 안정 판정 창
-#define STABLE_BAND_G_DEFAULT 0.5f  // 창 안 최대-최소 ≤ 이 값이면 stable (미검증: 실측 후 조정)
+#define STABLE_BAND_COUNTS_DEFAULT 400.0f // 약 1g. 1초 창 안 필터값 최대-최소 ≤ 이 값이면 stable (11/27 하우징 실기 노이즈 기준)
 #define HX711_TIMEOUT_MS      1000  // 이 시간 동안 데이터 없으면 오류(빨강)
 #define OVERLOAD_G            5200.0f // 5kg 로드셀 정격 초과
 #define TARE_SAMPLES          10    // 영점 평균 샘플 수
 #define BOOT_AUTOZERO_G       50.0f // 부팅 시 |무게|가 이 안이면 자동 영점
-#define AZT_BAND_G            0.3f  // 영점 추적: 안정 & |w|<band 일 때 천천히 0으로
+#define AZT_BAND_COUNTS       130.0f // 약 0.3g. 영점 추적: 안정 & |원시-영점|<band 일 때 천천히 0으로
 #define DEFAULT_COUNTS_PER_G  (-430.0f) // 미보정 추정치(미검증). 누르면 raw 감소 → 음수
 #define CAL_REF_G_DEFAULT     1000.0f   // 기준 분동 무게 (NVS로 변경 가능)
 #define CAL_MIN_DELTA_COUNTS  3000      // 기준 무게 올렸다고 판단할 최소 raw 변화 (노이즈 ±100의 30배. 0.2.1까지 20000 → 가벼운 기준물 인식 못 함)
